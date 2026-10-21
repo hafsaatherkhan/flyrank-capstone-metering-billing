@@ -62,10 +62,11 @@ def setup_test_db():
 def clean_tables():
     db = TestingSessionLocal()
     db.execute(text(
-        "TRUNCATE TABLE usage_events, idempotency_keys, subscriptions, tenants, plans RESTART IDENTITY CASCADE"
+        "TRUNCATE TABLE usage_events, idempotency_keys, subscriptions, webhook_events, tenants, plans RESTART IDENTITY CASCADE"
     ))
     db.commit()
     db.close()
+
 
 
 # ── Convenience DB session ────────────────────────────────────────────────────
