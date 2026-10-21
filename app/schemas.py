@@ -22,3 +22,9 @@ class GenerateUsageSummary(BaseModel):
     total_tokens: int
     api_call_cost_micro_usd: int
     token_cost_micro_usd: int
+
+
+class CheckoutResponse(BaseModel):
+    checkout_url: str
+    checkout_id: str
+
