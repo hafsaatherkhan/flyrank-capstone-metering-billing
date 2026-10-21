@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import (
-    BigInteger, Column, DateTime, ForeignKey,
+    BigInteger, Boolean, Column, DateTime, ForeignKey,
     Integer, String, UniqueConstraint, Index, text
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -18,7 +18,7 @@ class Plan(Base):
     name = Column(String, nullable=False, unique=True)
     api_calls_limit = Column(Integer, nullable=False)
     ai_tokens_limit = Column(Integer, nullable=False)
-    stripe_price_id = Column(String, nullable=True)
+    provider_product_id = Column(String, nullable=True)
 
 
 class Tenant(Base):
@@ -28,7 +28,7 @@ class Tenant(Base):
     api_key_hash = Column(String(64), nullable=False, unique=True)
     plan_id = Column(Integer, ForeignKey("plans.id"), nullable=False)
     subscription_status = Column(String, nullable=False, default="active")
-    stripe_customer_id = Column(String, nullable=True, unique=True)
+    provider_customer_id = Column(String, nullable=True, unique=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
 
 
@@ -36,8 +36,9 @@ class Subscription(Base):
     __tablename__ = "subscriptions"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
-    stripe_subscription_id = Column(String, nullable=False, unique=True)
+    provider_subscription_id = Column(String, nullable=False, unique=True)
     status = Column(String, nullable=False)
+    cancel_at_period_end = Column(Boolean, nullable=False, default=False)
     current_period_end = Column(DateTime(timezone=True), nullable=True)
     __table_args__ = (
         Index("ix_subscriptions_tenant_id", "tenant_id"),
@@ -74,9 +75,9 @@ class UsageEvent(Base):
     )
 
 
-class StripeEvent(Base):
-    __tablename__ = "stripe_events"
-    event_id = Column(String, primary_key=True)
+class WebhookEvent(Base):
+    __tablename__ = "webhook_events"
+    event_id = Column(String, primary_key=True)  # the webhook-id header
     type = Column(String, nullable=False)
     received_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
     processed_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)

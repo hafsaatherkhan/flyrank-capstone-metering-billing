@@ -8,7 +8,7 @@ You are my pair-programmer. We build this project **one phase at a time**. Read 
 2. **Commit locally after each logical step. NEVER run `git push`, never add a remote, never create a GitHub repo.** I will review the full app and push myself at the end.
 3. **Small commits.** Each phase should produce 5-10 commits, each one a working step (code + its tests together). Use Conventional Commits: `feat:`, `fix:`, `test:`, `docs:`, `chore:`, `refactor:`.
 4. **Use real timestamps.** Do not backdate or fake commit dates, do not rewrite history.
-5. **Secrets:** `.env` is git-ignored from the very first commit. Only `.env.example` with placeholders is committed. Never log secrets, never print the Stripe key or `whsec_` value.
+5. **Secrets:** `.env` is git-ignored from the very first commit. Only `.env.example` with placeholders is committed. Never log secrets, never print the Polar access token or webhook secret.
 6. **Money is integers only** (micro-USD). No floats anywhere in money or token math.
 7. **Every input is validated at the boundary** (Pydantic). Bad input gives a clean 4xx JSON error, never a 500.
 8. **Keep it small.** Do not add features outside this plan (no invoices, proration, overage, UI). If you have a good idea, add it to README under "Future ideas" and move on.
@@ -22,7 +22,7 @@ You are my pair-programmer. We build this project **one phase at a time**. Read 
 - List of commits made (`git log --oneline` for this phase)
 - Files added/changed
 - Explain-me (3 spots)
-- Anything I must do manually (e.g. create Stripe test account, run `stripe login`)
+- Anything I must do manually (e.g. create Polar sandbox account, product, access token, webhook)
 - Then the line: `Waiting for: go phase N+1`
 
 ## 2. Fixed decisions (do not re-ask)
@@ -33,8 +33,8 @@ You are my pair-programmer. We build this project **one phase at a time**. Read 
 | DB | PostgreSQL on **Neon** (free, hosted). Two databases/branches: `dev` and `test`. Use the **pooled** connection string. SQLite is NOT allowed (we need row locks + JSONB) |
 | ORM/migrations | SQLAlchemy 2.x + Alembic (schema only via migrations) |
 | Validation | Pydantic v2 |
-| Tests | pytest + httpx TestClient, deterministic. Stripe is never called in tests (signed payloads built locally); tests use the Neon `test` DB and clean their tables between tests |
-| Payments | Stripe **test mode only**, official `stripe` Python SDK, Stripe CLI for local webhooks |
+| Tests | pytest + httpx TestClient, deterministic. Polar is never called in tests (signed Standard Webhooks payloads built locally); tests use the Neon `test` DB and clean their tables between tests |
+| Payments | **Polar.sh sandbox only** (`sandbox.polar.sh`, server=`sandbox`), official `polar-sdk` Python package. **NOT Stripe**: Stripe is unavailable in Pakistan, so the brief's "Stripe test mode" is replaced by Polar's sandbox (same concepts: hosted checkout, subscriptions, signed webhooks). Never use production mode. Consult Polar's current docs for exact SDK calls, do not guess parameter names |
 | Local run | `python -m venv .venv`, `pip install -r requirements.txt`, `alembic upgrade head`, `uvicorn app.main:app --reload` |
 | Hosting | **Vercel** (FastAPI as a Vercel Function, zero-config Python runtime) + Neon. Cron via Vercel Cron (a GET route) |
 | Auth | Per-tenant API key in header `X-API-Key`, stored as SHA-256 hash, never plaintext |
@@ -86,7 +86,7 @@ Cost formula: `cost_micro_usd = round_half_up((input*P_in + cached*P_cached + (o
 app/
   main.py (exposes `app`)  config.py  db.py  models.py  schemas.py  errors.py
   api/        deps.py  generate.py  usage.py  checkout.py  webhooks.py
-  services/   metering.py  quota.py  pricing.py  stripe_sync.py
+  services/   metering.py  quota.py  pricing.py  billing_sync.py
   jobs/       reconcile.py
 migrations/   (alembic)
 scripts/      seed.py
@@ -101,7 +101,7 @@ README.md  EVIDENCE.md  BUILDLOG.md  capstone.yaml  .env.example  .gitignore  LI
 ### Phase 0: Repo scaffold (tiny)
 - `git init`, branch `main`.
 - First commit: `README.md` skeleton, `.gitignore` (must include `.env`, `__pycache__`, `.venv`, `*.db`, `.pytest_cache`), `LICENSE` (MIT), `.env.example`.
-- `.env.example` vars: `DATABASE_URL`, `DATABASE_URL_TEST`, `CRON_SECRET`, `STRIPE_SECRET_KEY=sk_test_xxx`, `STRIPE_WEBHOOK_SECRET=whsec_xxx`, `STRIPE_PRO_PRICE_ID=price_xxx`, `APP_BASE_URL`. Note: Neon URLs need `sslmode=require`.
+- `.env.example` vars: `DATABASE_URL`, `DATABASE_URL_TEST`, `CRON_SECRET`, `POLAR_ACCESS_TOKEN=polar_oat_xxx`, `POLAR_WEBHOOK_SECRET=xxx`, `POLAR_PRO_PRODUCT_ID=xxx`, `POLAR_SERVER=sandbox`, `APP_BASE_URL`. Note: Neon URLs need `sslmode=require`.
 - Empty `EVIDENCE.md` and `BUILDLOG.md` with headings only.
 - **Gate:** `git status` clean, `.env` is ignored (`git check-ignore .env` prints it).
 
@@ -109,13 +109,13 @@ README.md  EVIDENCE.md  BUILDLOG.md  capstone.yaml  .env.example  .gitignore  LI
 Write `docs/DESIGN.md` (one page, max ~120 lines) containing:
 1. Problem in 3 sentences.
 2. Data model with columns and indexes:
-   - `plans(id, name, api_calls_limit, ai_tokens_limit, stripe_price_id)`
-   - `tenants(id, name, api_key_hash UNIQUE, plan_id, subscription_status, stripe_customer_id, created_at)`
-   - `subscriptions(id, tenant_id, stripe_subscription_id UNIQUE, status, current_period_end)`
+   - `plans(id, name, api_calls_limit, ai_tokens_limit, provider_product_id)`
+   - `tenants(id, name, api_key_hash UNIQUE, plan_id, subscription_status, provider_customer_id, created_at)`
+   - `subscriptions(id, tenant_id, provider_subscription_id UNIQUE, status, cancel_at_period_end, current_period_end)`
    - `idempotency_keys(tenant_id, key, request_hash, response_status, response_body JSONB, created_at, PRIMARY KEY(tenant_id, key))`
    - `usage_events(id, tenant_id, usage_type['api_call'|'ai_tokens'], quantity, input_tokens, cached_input_tokens, output_tokens, reasoning_tokens, cost_micro_usd, idempotency_key, period_start, created_at)` with `UNIQUE(tenant_id, idempotency_key, usage_type)` and index `(tenant_id, period_start, usage_type)`
-   - `stripe_events(event_id PRIMARY KEY, type, received_at, processed_at)`
-3. API contract: `POST /generate`, `GET /usage`, `POST /checkout`, `POST /webhooks/stripe`, `GET /health`.
+   - `webhook_events(event_id PRIMARY KEY (the `webhook-id` header), type, received_at, processed_at)`
+3. API contract: `POST /generate`, `GET /usage`, `POST /checkout`, `POST /webhooks/polar`, `GET /health`.
 4. Idempotency strategy (key lookup first, request hash compare, unique constraint as the final race guard).
 5. Concurrency strategy for the quota boundary (`SELECT ... FOR UPDATE` on the tenant row inside the transaction).
 6. The boundary rule and status code table from section 2.
@@ -145,41 +145,43 @@ Tests required (`tests/`):
 
 **Gate:** same request sent twice creates one event; boundary returns 429/402. Show `pytest` output and a curl transcript of the double request.
 
-### Phase 3: Stripe integration (test mode)
-1. `POST /checkout`: creates a Stripe Checkout Session (mode=subscription, price from env) for the authenticated tenant; stores `stripe_customer_id` on the tenant; returns the checkout URL. Put `tenant_id` in session `client_reference_id` and metadata.
-2. `POST /webhooks/stripe`:
-   - read the **raw body**, verify with `stripe.Webhook.construct_event` and `STRIPE_WEBHOOK_SECRET`; invalid -> 400, no DB change
-   - insert `event.id` into `stripe_events`; if it already exists -> return 200 `duplicate_ignored`
-   - handle `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`
-   - update tenant plan and `subscription_status` (+ `subscriptions` table); `deleted` returns tenant to free
+### Phase 3: Polar payments integration (sandbox)
+**Manual steps for me (list them clearly in the Phase Report, I do them):** create an account on `sandbox.polar.sh`, create an organization, create a recurring monthly product "Pro", create an access token, add a webhook endpoint later in Phase 5. If any step asks for a credit card, STOP and tell me.
+1. `POST /checkout`: creates a Polar checkout for the Pro product using the authenticated tenant (pass `tenant_id` as external customer id and/or metadata so webhooks can find the tenant); returns the checkout URL. Server must be `sandbox`.
+2. `POST /webhooks/polar`:
+   - read the **raw body**, verify with `polar_sdk.webhooks.validate_event` and `POLAR_WEBHOOK_SECRET` (Polar follows the Standard Webhooks spec); invalid -> 400, no DB change
+   - dedupe using the `webhook-id` header: insert into `webhook_events`; if it already exists -> return 200 `duplicate_ignored`
+   - handle `subscription.created` / `subscription.active` (-> pro, status active), `subscription.updated` (sync status + period end), `subscription.canceled` (stays pro until period end, set `cancel_at_period_end`), `subscription.revoked` (-> back to free)
+   - map provider status `past_due`/`unpaid` to our `past_due` (402 on /generate)
    - unknown event types: store + 200, do nothing
-   - the event-insert and the tenant update happen in one transaction
-3. `services/stripe_sync.py` holds the mapping logic so handlers stay thin.
-4. README section "Stripe local setup": `stripe login`, `stripe listen --forward-to localhost:8000/webhooks/stripe`, `stripe trigger checkout.session.completed`, test card `4242 4242 4242 4242`.
+   - the dedupe insert and the tenant update happen in one transaction
+3. `services/billing_sync.py` holds the provider-event -> internal-state mapping so handlers stay thin and provider-neutral (swapping Polar for another provider later should only touch this file + the SDK calls).
+4. README section "Polar local setup": sandbox account steps; for local webhooks use Polar's `polar listen` tunnel (check current docs) or test webhooks against the deployed Vercel URL; test card is the one shown in Polar's sandbox docs (usually `4242 4242 4242 4242`).
+5. README section "Why Polar and not Stripe": Stripe is unavailable in my country (Pakistan); Polar is a merchant of record with a sandbox, signed webhooks and subscriptions, so every brief requirement maps 1:1.
 
-Tests (no network; build signed payloads locally with the test secret using Stripe's signing scheme):
+Tests (no network; build signed Standard Webhooks payloads locally with a test secret, e.g. using the `standardwebhooks` package):
 - forged signature -> 400 and DB unchanged
-- same event delivered twice -> processed once
-- checkout completed -> tenant free -> pro, `/usage` shows new limits
-- subscription deleted -> back to free
+- same event (same `webhook-id`) delivered twice -> processed once
+- subscription created/active -> tenant free -> pro, `/usage` shows new limits
+- subscription revoked -> back to free
 - past_due -> 402 `payment_required` on `/generate`
 
-**Gate:** test Checkout (or `stripe trigger`) flips a tenant Free -> Pro via webhook. Tell me exactly which manual steps I must run with my Stripe test account, then STOP.
+**Gate:** a sandbox checkout flips a tenant Free -> Pro via a verified webhook. Tell me exactly which manual steps I must run, then STOP.
 
 ### Phase 4: Cost, usage endpoint, hardening, docs
 1. `services/pricing.py`: pure functions using integer math and config constants only (section 2).
 2. `GET /usage` returns `{period, plan, subscription_status, api_calls: {used, limit}, ai_tokens: {used, limit}, cost: {api_calls_micro_usd, tokens_micro_usd, total_micro_usd, total_usd_display}}`.
 3. Pricing tests with hand-computed expected totals, including: cached cheaper than fresh, reasoning billed as output, categories not simply added, rounding happens once. Example to include as a test: `input=1000, cached=2000, output=500, reasoning=300` -> `(1000*300000 + 2000*30000 + 800*2500000) / 1e6 = 2360` micro-USD. (Verify this arithmetic in the test, do not trust it blindly.)
-4. `jobs/reconcile.py`: a small background job, runnable as `python -m app.jobs.reconcile` AND exposed as `GET /api/cron/reconcile`, protected by `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends it), that compares local subscription status with Stripe's and **logs mismatches loudly** (no auto-fix). Failures must be logged without crashing the loop. This covers the shared "background job" requirement.
+4. `jobs/reconcile.py`: a small background job, runnable as `python -m app.jobs.reconcile` AND exposed as `GET /api/cron/reconcile`, protected by `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends it), that compares local subscription status with Polar's (via API) and **logs mismatches loudly** (no auto-fix). Failures must be logged without crashing the loop. This covers the shared "background job" requirement.
 5. Logging: structured, never logs secrets or full API keys.
 6. `capstone.yaml`: `run:` (`uvicorn app.main:app --port 8000`), `seed:` (`python scripts/seed.py`), `test:` (`pytest`), `base_url:`, endpoints to probe. README documents the 4-step local run from section 2 (no Docker).
-7. `README.md` complete: what it does, ASCII architecture diagram, exact run + seed steps (venv, install, migrate, uvicorn, seed), plans table, boundary rule, status code table, pricing rules, Stripe local setup, API docs with curl examples, honest "Limitations", "Future ideas".
+7. `README.md` complete: what it does, ASCII architecture diagram, exact run + seed steps (venv, install, migrate, uvicorn, seed), plans table, boundary rule, status code table, pricing rules, Polar local setup, "Why Polar and not Stripe", API docs with curl examples, honest "Limitations", "Future ideas".
 8. `EVIDENCE.md`: **one pasted real proof per Section-6 checkbox** (real command output, not invented):
    - double-count impossible (same request twice)
    - quota boundary 429/402 with message
    - tenant isolation
    - pricing totals match `/usage`
-   - Stripe checkout -> Pro via webhook
+   - Polar sandbox checkout -> Pro via webhook (note in EVIDENCE.md that this is the Stripe-requirement equivalent)
    - forged webhook 400 + duplicate event processed once
    - DB tables present + tenant isolation
    - README/required files present
@@ -187,7 +189,7 @@ Tests (no network; build signed payloads locally with the test secret using Stri
 
 **Gate:** all probes pass locally; `EVIDENCE.md` is filled with real output. Print the final Phase Report plus a "Pre-push checklist":
 - [ ] `git log --oneline` shows every phase
-- [ ] `git grep -i "sk_test_\|whsec_"` finds only placeholders
+- [ ] `git grep -i "polar_oat_\|whsec_\|sk_test_"` finds only placeholders
 - [ ] `.env` was never committed (`git log --all -- .env` is empty)
 - [ ] README run steps work on a clean clone
 
@@ -195,10 +197,10 @@ Then STOP. **Do not push.** I will review the entire app myself and push manuall
 
 ### Phase 5: Deploy to Vercel (after Phase 4 passes)
 1. `vercel.json`: only what is needed, plus `"crons": [{"path": "/api/cron/reconcile", "schedule": "0 0 * * *"}]` (cron runs on production deployments only; check my plan's cron limits in Vercel docs).
-2. Env vars to set in Vercel (I do this in the dashboard, you list them): `DATABASE_URL` (Neon pooled, prod database), `STRIPE_SECRET_KEY` (test), `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_PRICE_ID`, `APP_BASE_URL`, `CRON_SECRET`.
+2. Env vars to set in Vercel (I do this in the dashboard, you list them): `DATABASE_URL` (Neon pooled, prod database), `POLAR_ACCESS_TOKEN` (sandbox), `POLAR_WEBHOOK_SECRET`, `POLAR_PRO_PRODUCT_ID`, `POLAR_SERVER=sandbox`, `APP_BASE_URL`, `CRON_SECRET`.
 3. Run migrations and seed against the **prod** Neon database **from my local machine** (`alembic upgrade head`, `python scripts/seed.py`). Never run migrations on Vercel startup.
-4. Stripe test-mode Dashboard: register webhook endpoint `https://<project>.vercel.app/webhooks/stripe` for the 3 events, copy its `whsec_...` into Vercel env (this is different from the Stripe CLI secret used locally). Redeploy.
-5. Verify live with curl: `/health`, double `/generate` with same key, forged webhook -> 400, test Checkout -> tenant becomes Pro.
+4. In the Polar **sandbox** dashboard: register webhook endpoint `https://<project>.vercel.app/webhooks/polar` for the subscription events, copy its secret into Vercel env (it differs from any local/tunnel secret). Redeploy.
+5. Verify live with curl: `/health`, double `/generate` with same key, forged webhook -> 400, sandbox checkout -> tenant becomes Pro.
 6. README: add "Live demo" section with the URL, `/docs` link, a demo API key for a **demo tenant only** (never a real secret), and a 5-minute demo path. Paste live curl outputs into `EVIDENCE.md`.
 7. Frontend: **none by default.** FastAPI's `/docs` (Swagger UI) is the demo UI. Only if I explicitly ask later, build ONE static page (dashboard showing `/usage`) with CORS configured; do not start it without my approval.
 

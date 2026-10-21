@@ -14,8 +14,8 @@ from app.db import SessionLocal
 from app.models import Plan, Tenant
 
 PLANS = [
-    {"name": "free", "api_calls_limit": 1_000, "ai_tokens_limit": 100_000, "stripe_price_id": None},
-    {"name": "pro", "api_calls_limit": 50_000, "ai_tokens_limit": 5_000_000, "stripe_price_id": os.getenv("STRIPE_PRO_PRICE_ID")},
+    {"name": "free", "api_calls_limit": 1_000, "ai_tokens_limit": 100_000, "provider_product_id": None},
+    {"name": "pro", "api_calls_limit": 50_000, "ai_tokens_limit": 5_000_000, "provider_product_id": os.getenv("POLAR_PRO_PRODUCT_ID")},
 ]
 
 TENANTS = [
@@ -36,6 +36,11 @@ def seed():
             existing = db.query(Plan).filter_by(name=plan_data["name"]).first()
             if not existing:
                 db.add(Plan(**plan_data))
+            else:
+                existing.api_calls_limit = plan_data["api_calls_limit"]
+                existing.ai_tokens_limit = plan_data["ai_tokens_limit"]
+                if plan_data["provider_product_id"]:
+                    existing.provider_product_id = plan_data["provider_product_id"]
         db.commit()
         print("Plans seeded.")
 
@@ -59,13 +64,11 @@ def seed():
                 print(f"  API Key (save this, shown once): {raw_key}")
                 print(f"  Tenant ID: {tenant.id}")
             else:
-                print(f"Tenant '{tenant_data['name']}' already exists, skipping.")
-        print("Seed complete.")
+                print(f"Tenant '{tenant_data['name']}' already exists (ID: {existing.id}).")
+
     finally:
         db.close()
 
 
 if __name__ == "__main__":
-    from dotenv import load_dotenv
-    load_dotenv()
     seed()
