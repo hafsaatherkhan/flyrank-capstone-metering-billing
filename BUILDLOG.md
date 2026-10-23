@@ -57,3 +57,19 @@ Chronological audit log tracking AI generations, human corrections, bug fixes, a
 - **Double-Check for User:**
   - Log in to your `sandbox.polar.sh` account, create your "Pro" monthly product, and set the resulting product ID and personal access token in `.env`.
 
+
+## Phase 4: Cost, Usage Endpoint, Hardening, Docs
+- **AI Generated:**
+  - `app/api/usage.py`: `GET /usage` endpoint returning current calendar-month period usage (`api_calls`, `ai_tokens`), tier limits, subscription status, and integer micro-USD costs along with human-readable `$X.XXXXXX` display string.
+  - `tests/test_pricing.py`: 14 unit tests with hand-computed arithmetic proofs verifying token categories (fresh vs cached, reasoning at output rate), integer-only math, and end-of-event rounding rule (`(1000*300k + 2000*30k + 800*2.5M)/1M = 2360 micro-USD`).
+  - `tests/test_usage.py`: 10 integration tests validating aggregation of calls and tokens, isolation across tenants, status reporting, and unauthenticated error handling.
+  - `app/jobs/reconcile.py`: Standalone subscription reconciliation script runnable via `python -m app.jobs.reconcile` that compares local DB subscriptions with live Polar API status, logging mismatches loudly without breaking on individual errors or logging secrets.
+  - `app/api/cron.py`: `GET /api/cron/reconcile` Vercel Cron endpoint secured via constant-time `Authorization: Bearer $CRON_SECRET` validation.
+  - `app/main.py`: Configured structured logging with ISO timestamps and wired up all routers (`health`, `generate`, `usage`, `checkout`, `webhooks`, `cron`).
+  - `capstone.yaml`: Standardized run, seed, test commands and public endpoints.
+  - `README.md`: Complete documentation covering architecture ASCII diagram, boundary rule, 4-step local run, pricing rules, Polar sandbox workflow, curl examples, limitations, and future ideas.
+  - `EVIDENCE.md`: Real execution output proofs for all 5 capstone acceptance gates and inspection outputs.
+- **Issues & Fixes:**
+  - PowerShell stderr redirects during background task execution produced false non-zero exit codes on warnings (`PytestDeprecationWarning`); verified clean execution and test pass counts directly with pytest run outputs.
+- **Double-Check for User:**
+  - Verify `CRON_SECRET` in `.env` matches what will be supplied in cron caller headers.
