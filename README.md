@@ -246,9 +246,80 @@ On Vercel, the cron schedule in `vercel.json` triggers this at midnight UTC dail
 ## Limitations
 
 - No invoicing, proration, or overage billing.
-- No frontend UI (Swagger `/docs` is the demo interface).
 - Polar sandbox only — production Polar would require changing `POLAR_SERVER=production`.
 - AI generation is simulated; no real LLM is called.
+
+---
+
+## Web UI (Reviewer Demo)
+
+A dedicated, lightweight demonstration UI is available in `web/` built with **Next.js (App Router)**, **TypeScript**, and **Tailwind CSS**. It is designed specifically for evaluators to visually inspect metering, idempotency replay, quota gating, and live Polar upgrades.
+
+### Features
+1. **Connect Screen (`/connect`):** Connect any tenant via `X-API-Key` (stored only in `sessionStorage`) or 1-click fill via the public demo key.
+2. **Dashboard (`/dashboard`):** Real-time plan badge, subscription status, dual progress bars for API calls and AI tokens (changing colors at 80% warning and 100% hard ceiling), micro-USD cost breakdown, and "Upgrade to Pro" checkout button with auto-polling.
+3. **Playground (`/playground`):** Live simulator for `POST /generate` with configurable token tiers (fresh input, cached, output, reasoning), an auto-generated `Idempotency-Key`, a "Reuse same key" toggle, and a "Send Twice" button to observe immediate replay caching and quota locks.
+4. **Events Ledger (`/events`):** Tenant-isolated audit table displaying the latest 20 usage events with token breakdowns and micro-USD calculations.
+
+### Running the Web UI locally
+```bash
+# Navigate to web directory
+cd web
+
+# Install dependencies
+npm install
+
+# Configure environment variables
+# Copy .env.local.example to .env.local if needed
+# NEXT_PUBLIC_API_URL=http://localhost:8000
+# NEXT_PUBLIC_DEMO_API_KEY=<demo_tenant_key>
+
+# Run development server
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) to view the UI.
+
+### Vercel Deployment (Second Project)
+Deploy `web/` as an independent Vercel project connected to the same repository:
+- **Root Directory:** `web`
+- **Framework Preset:** Next.js
+- **Environment Variables:**
+  - `NEXT_PUBLIC_API_URL`: URL of the deployed FastAPI backend (e.g. `https://your-api.vercel.app`)
+  - `NEXT_PUBLIC_DEMO_API_KEY`: Evaluation tenant API key for the "Use demo key" button.
+
+### UI Previews & Screenshots
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│  FlyRank  [Dashboard] [Playground] [Events]             Tenant A (free)│
+├────────────────────────────────────────────────────────────────────────┤
+│  Usage Dashboard  [FREE] [ACTIVE]                                      │
+│                                                                        │
+│  API Calls Quota                     AI Tokens Quota                   │
+│  [████████████░░░░░░░░░░░░] 52%      [████████████████████] 100%       │
+│  Used: 520 / 1,000                   Used: 100,000 / 100,000 (RED)     │
+│                                                                        │
+│  Period Cost Breakdown                                                 │
+│  API Calls: $0.520000    Tokens: $0.236000    Total: $0.756000         │
+│                                                                        │
+│  [ Upgrade to Pro ] ──► Redirects to Polar Sandbox Checkout            │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│  Playground Live Demo                                                  │
+│  [Prompt: Summarize Q3 report...]  [Tokens: In: 300 Cached: 50 Out: 150]│
+│  Idempotency-Key: [ 9b1deb4d-... ] [x] Reuse Key                       │
+│  [ Send POST /generate ]  [ Send Twice (Verify Idempotency) ]          │
+│                                                                        │
+│  Response Logs:                                                        │
+│  ▶ [200 OK] [Idempotent-Replayed: true]                                │
+│    {"simulated_usage": {"total_tokens": 575}, "cost_micro_usd": 1420}  │
+│  ▶ [402 Quota Exceeded]                                                │
+│    {"detail": {"error": "quota_exceeded", "metric": "ai_tokens"}}      │
+└────────────────────────────────────────────────────────────────────────┘
+```
 
 ## Future Ideas
 

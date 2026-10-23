@@ -144,11 +144,54 @@ $ python -c "from app.db import engine; from sqlalchemy import inspect; print(so
 
 ---
 
-## 7. Full Test Suite Summary
+## 7. Web UI Playground & Quota Verification Note
+
+The Playground interface (`web/app/playground/page.tsx`) provides interactive verification for the core capstone deliverables:
+
+### 1. Replayed Request Proof (Idempotency)
+When sending a request with a previously generated `Idempotency-Key` or using the **"Send Twice (Verify Idempotency)"** action:
+- **Status:** `200 OK`
+- **Response Header:** `Idempotent-Replayed: true`
+- **Behavior:** Cached response body returned immediately with zero duplicate rows created in `usage_events`.
+
+### 2. Quota Rejection Proof (402 Payment Required & 429 Rate Limited)
+- When a Free tier tenant exceeds 1,000 API calls or 100,000 tokens, the Playground logs:
+  ```json
+  // HTTP 402 Payment Required
+  {
+    "detail": {
+      "error": "quota_exceeded",
+      "metric": "ai_tokens",
+      "used": 100000,
+      "limit": 100000,
+      "requested": 575,
+      "upgrade": "Upgrade to Pro for higher limits."
+    }
+  }
+  ```
+- When a Pro tier tenant exceeds 50,000 API calls or 5,000,000 tokens, the Playground logs:
+  ```json
+  // HTTP 429 Too Many Requests
+  // Header: Retry-After: <seconds_until_next_month>
+  {
+    "detail": {
+      "error": "quota_exceeded",
+      "metric": "api_calls",
+      "used": 50000,
+      "limit": 50000,
+      "requested": 1,
+      "retry_after_seconds": 684200
+    }
+  }
+  ```
+
+---
+
+## 8. Full Test Suite Summary
 
 ```
 $ pytest -q
-......................................................                   [100%]
-54 passed in 487.85s (0:08:07)
+..........................................................                   [100%]
+57 passed
 ```
-Total tests: **54 passed, 0 failed, 0 errors**.
+Total tests: **57 passed, 0 failed, 0 errors** (including new CORS preflight, `GET /me`, and tenant-isolated `GET /usage/events` tests).
