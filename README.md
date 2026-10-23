@@ -226,20 +226,66 @@ test secret using the Standard Webhooks HMAC spec.
 
 ---
 
-## Background Job (Reconciliation)
+## Background Job (Subscription Reconciliation)
 
-Run manually:
+The engine features a dedicated background job (`app/jobs/reconcile.py`) designed to move slow external reconciliation work completely off the request path.
+
+### Key Capabilities
+- **Bounded Retry Policy**: Retries transient network failures, connection timeouts, HTTP 429 rate limits, and 5xx server errors with exponential backoff and randomized jitter.
+- **Header-Aware Backoff**: Strictly honors Polar's `Retry-After` header when rate limited.
+- **Fail-Fast for Permanent Errors**: 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found, and invalid configuration are never retried.
+- **Structured Failure Alerting (`app/jobs/alerts.py`)**: Emits observable, structured alerts (`FAILURE_ALERT`) on exhausted retries, unhandled crashes, or client initialization failures. Supports alert deduplication within a configurable TTL window to prevent alert spam, and provides an optional webhook dispatch point (`ALERT_WEBHOOK_URL`).
+- **Failure Isolation**: An error or retry failure on one subscription never impedes or halts reconciliation of unrelated subscriptions.
+- **Concurrency Safety**: Thread-safe execution lock guards against overlapping runs in the same environment.
+
+### Configuration (`.env`)
+```bash
+RECONCILE_MAX_RETRIES=3          # Maximum number of retry attempts for transient errors
+RECONCILE_BACKOFF_BASE=0.5       # Exponential backoff base in seconds
+RECONCILE_BACKOFF_MAX=5.0        # Maximum backoff sleep in seconds
+RECONCILE_REQUEST_TIMEOUT=5.0    # Per-request timeout for payment provider calls
+ALERT_WEBHOOK_URL=               # (Optional) Webhook URL for external alert routing (Slack/PagerDuty)
+```
+
+### Execution Modes
+
+1. **Independent CLI Runner (Off the Request Path)**:
 ```bash
 python -m app.jobs.reconcile
 ```
 
-Or trigger via HTTP:
+2. **Asynchronous Background HTTP Dispatch (Off the Request Path)**:
 ```bash
-curl -s http://localhost:8000/api/cron/reconcile \
+curl -s -X GET "http://localhost:8000/api/cron/reconcile?sync=false" \
   -H "Authorization: Bearer <CRON_SECRET>"
+# Returns immediately with HTTP 202 Accepted and executes in background
+```
+
+3. **Synchronous Cron Collector**:
+```bash
+curl -s -X GET "http://localhost:8000/api/cron/reconcile" \
+  -H "Authorization: Bearer <CRON_SECRET>"
+# {"status":"ok","run_id":"a8b1c2d3","checked":2,"mismatched":0,"errored":0,"aborted":false}
 ```
 
 On Vercel, the cron schedule in `vercel.json` triggers this at midnight UTC daily.
+
+### Alert Observability & Troubleshooting
+Failure alerts are formatted as structured JSON logs:
+```json
+{
+  "job_name": "reconciliation",
+  "run_id": "a8b1c2d3",
+  "failure_category": "RETRIES_EXHAUSTED",
+  "severity": "ERROR",
+  "message": "Failed to fetch live status from provider after 4 attempts: PolarServerError",
+  "attempt_count": 4,
+  "tenant_identifier": "7f8b9a1c",
+  "subscription_identifier": "sub_12345",
+  "timestamp": "2026-10-24T02:00:00Z"
+}
+```
+If an `ALERT_WEBHOOK_URL` is configured, alerts are dispatched via HTTP POST with a bounded timeout and non-blocking failure recovery. Safe identifiers are logged (first 8 characters of UUIDs); secrets and auth tokens are never logged.
 
 ---
 

@@ -73,3 +73,16 @@ Chronological audit log tracking AI generations, human corrections, bug fixes, a
   - PowerShell stderr redirects during background task execution produced false non-zero exit codes on warnings (`PytestDeprecationWarning`); verified clean execution and test pass counts directly with pytest run outputs.
 - **Double-Check for User:**
   - Verify `CRON_SECRET` in `.env` matches what will be supplied in cron caller headers.
+
+## Phase 5: FlyRank Background Reconciliation Compliance (Retries & Alerts)
+- **AI Generated:**
+  - `app/jobs/alerts.py`: Structured `FailureAlert` model and `AlertDispatcher` providing JSON error logging, alert deduplication (configurable TTL to eliminate alert spam), safe identifier logging (UUID prefixes only, no secrets or credentials), and optional non-blocking webhook delivery (`ALERT_WEBHOOK_URL`).
+  - `app/jobs/reconcile.py`: Upgraded reconciliation job with bounded retry policy (`RECONCILE_MAX_RETRIES`), exponential backoff with full randomized jitter (`compute_backoff`), `Retry-After` header parsing on HTTP 429, error classification (`is_transient_error` distinguishing transient 429/5xx/network from permanent 4xx/config errors), subscription failure isolation (one failure never halts the run), and process concurrency lock (`_JOB_LOCK`).
+  - `app/api/cron.py`: Added `BackgroundTasks` support via `sync=false` query parameter to allow asynchronous job dispatch returning HTTP 202 Accepted, moving heavy reconciliation completely off the HTTP request path while retaining sync mode for Vercel Cron.
+  - `app/config.py` & `.env.example`: Added configurable settings for retry counts, backoff parameters, request timeout, and alert webhook.
+  - `tests/test_reconcile.py`: 12 automated unit and integration tests covering successful execution without retries, transient retry recovery, max retries exhaustion, fast failure on permanent 4xx errors, failure alert emission, subscription isolation, safe alert delivery failure handling, alert deduplication, concurrency locking, and off-the-request-path execution.
+- **Issues & Fixes:**
+  - Polar SDK error hierarchy differs from raw HTTP exceptions. Inspected `polar.base` classes (`PolarNetworkError`, `PolarServerError`, `PolarRateLimitError`, `PolarClientError`) and built robust classification supporting both SDK error types and underlying `httpx` exceptions.
+  - Concurrency lock was designed as thread-safe non-blocking lock to prevent overlapping runs from duplicating work or overloading the payment provider.
+- **Double-Check for User:**
+  - If you use an external alert webhook (e.g., Slack or PagerDuty), set `ALERT_WEBHOOK_URL` in `.env`.

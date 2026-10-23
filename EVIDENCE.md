@@ -187,7 +187,50 @@ When sending a request with a previously generated `Idempotency-Key` or using th
 
 ---
 
-## 8. Full Test Suite Summary
+## 8. Background Reconciliation, Retries & Failure Alerting Proofs
+
+### 12 Automated Verification Tests Passing
+```
+$ pytest tests/test_reconcile.py -v
+tests/test_reconcile.py::test_is_transient_error_classification PASSED   [  8%]
+tests/test_reconcile.py::test_compute_backoff PASSED                     [ 16%]
+tests/test_reconcile.py::test_reconciliation_success_no_retries PASSED   [ 25%]
+tests/test_reconcile.py::test_transient_failure_succeeds_on_retry PASSED [ 33%]
+tests/test_reconcile.py::test_repeated_transient_failures_stop_after_max PASSED [ 41%]
+tests/test_reconcile.py::test_permanent_failures_not_retried PASSED      [ 50%]
+tests/test_reconcile.py::test_exhausted_retries_produces_failure_alert PASSED [ 58%]
+tests/test_reconcile.py::test_one_failure_does_not_prevent_others PASSED [ 66%]
+tests/test_reconcile.py::test_alert_delivery_failure_is_handled_safely PASSED [ 75%]
+tests/test_reconcile.py::test_alert_deduplication PASSED                 [ 83%]
+tests/test_reconcile.py::test_concurrent_job_execution_safety PASSED     [ 91%]
+tests/test_reconcile.py::test_job_runs_independently_via_cli_and_cron_background PASSED [100%]
+============================= 12 passed in 48.86s =============================
+```
+
+### Proof: Bounded Retry Backoff Logged with Jitter & Attempt Count
+```
+INFO  app.jobs.reconcile: PROVIDER_FETCH_ATTEMPT job=reconciliation run_id=c148 sub=sub_test tenant=7a18 attempt=1/4
+WARNING app.jobs.reconcile: PROVIDER_FETCH_FAILED job=reconciliation run_id=c148 sub=sub_test tenant=7a18 attempt=1/4 category=TRANSIENT_ERROR error=PolarNetworkError
+INFO  app.jobs.reconcile: RETRY_BACKOFF job=reconciliation run_id=c148 sub=sub_test sleep_seconds=0.62
+INFO  app.jobs.reconcile: PROVIDER_FETCH_ATTEMPT job=reconciliation run_id=c148 sub=sub_test tenant=7a18 attempt=2/4
+```
+
+### Proof: Exhausted Retries Emit Verifiable Failure Alert
+```
+ERROR app.jobs.reconcile: RETRIES_EXHAUSTED job=reconciliation run_id=c148 sub=sub_test tenant=7a18 total_attempts=4
+ERROR app.jobs.alerts: FAILURE_ALERT: {"job_name": "reconciliation", "run_id": "c148", "failure_category": "RETRIES_EXHAUSTED", "severity": "ERROR", "message": "Failed to fetch live status from provider after 4 attempts: PolarServerError", "attempt_count": 4, "tenant_identifier": "7a18", "subscription_identifier": "sub_test", "timestamp": "2026-10-24T02:09:40Z", "details": {"error_type": "PolarServerError"}}
+```
+
+### Proof: Permanent Errors Fast-Fail Without Redundant Retries
+```
+INFO  app.jobs.reconcile: PROVIDER_FETCH_ATTEMPT job=reconciliation run_id=e902 sub=sub_invalid tenant=3b21 attempt=1/4
+WARNING app.jobs.reconcile: PROVIDER_FETCH_FAILED job=reconciliation run_id=e902 sub=sub_invalid tenant=3b21 attempt=1/4 category=PERMANENT_ERROR error=PolarClientError
+ERROR app.jobs.alerts: FAILURE_ALERT: {"job_name": "reconciliation", "run_id": "e902", "failure_category": "PERMANENT_ERROR", "severity": "ERROR", ...}
+```
+
+---
+
+## 9. Full Test Suite Summary
 
 ```
 $ pytest -q

@@ -12,6 +12,13 @@ class Settings(BaseSettings):
     web_origin: str = "http://localhost:3000"
     cron_secret: str
 
+    # Background Reconciliation & Retry Settings
+    reconcile_max_retries: int = 3
+    reconcile_backoff_base: float = 0.5
+    reconcile_backoff_max: float = 5.0
+    reconcile_request_timeout: float = 5.0
+    alert_webhook_url: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
