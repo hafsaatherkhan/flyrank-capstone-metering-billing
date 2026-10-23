@@ -2,7 +2,7 @@ import logging
 
 from fastapi import FastAPI
 
-from app.api import checkout, generate, health, usage, webhooks
+from app.api import checkout, cron, generate, health, usage, webhooks
 from app.errors import register_error_handlers
 
 # Structured logging: ISO timestamps, no secrets ever emitted
@@ -19,4 +19,5 @@ app.include_router(generate.router)
 app.include_router(usage.router)
 app.include_router(checkout.router)
 app.include_router(webhooks.router)
+app.include_router(cron.router)
 
