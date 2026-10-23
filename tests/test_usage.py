@@ -199,3 +199,80 @@ class TestUsageEndpoint:
         assert r.status_code == 200
         data = r.json()
         assert data["api_calls"]["used"] == 0, "Tenant A must not see Tenant B's events"
+
+    def test_me_endpoint(self, db):
+        plan = make_plan(db, name="free")
+        tenant, key = make_tenant(db, plan.id, name="Tenant Me Test")
+
+        r = client.get("/me", headers={"X-API-Key": key})
+        assert r.status_code == 200
+        data = r.json()
+        assert data["name"] == "Tenant Me Test"
+        assert data["plan"] == "free"
+        assert data["subscription_status"] == "active"
+        assert data["id"] == str(tenant.id)
+
+    def test_me_unauthenticated(self):
+        r = client.get("/me")
+        assert r.status_code in (401, 422)
+
+    def test_usage_events_endpoint(self, db):
+        import uuid as _uuid
+        plan = make_plan(db)
+        tenant_a, key_a = make_tenant(db, plan.id, name="A")
+        tenant_b, key_b = make_tenant(db, plan.id, name="B")
+
+        period = get_period_start()
+        # Add 2 events for A
+        db.add(UsageEvent(
+            id=_uuid.uuid4(), tenant_id=tenant_a.id, usage_type="api_call",
+            quantity=1, cost_micro_usd=1000,
+            idempotency_key="ev-a-1", period_start=period,
+        ))
+        db.add(UsageEvent(
+            id=_uuid.uuid4(), tenant_id=tenant_a.id, usage_type="ai_tokens",
+            quantity=500, input_tokens=300, cached_input_tokens=50, output_tokens=100, reasoning_tokens=50,
+            cost_micro_usd=2500, idempotency_key="ev-a-2", period_start=period,
+        ))
+        # Add 1 event for B
+        db.add(UsageEvent(
+            id=_uuid.uuid4(), tenant_id=tenant_b.id, usage_type="api_call",
+            quantity=1, cost_micro_usd=1000,
+            idempotency_key="ev-b-1", period_start=period,
+        ))
+        db.commit()
+
+        # Check tenant_a gets only its 2 events
+        r = client.get("/usage/events?limit=20", headers={"X-API-Key": key_a})
+        assert r.status_code == 200
+        events = r.json()
+        assert len(events) == 2
+        types = [e["usage_type"] for e in events]
+        assert "api_call" in types
+        assert "ai_tokens" in types
+        for ev in events:
+            assert "token_breakdown" in ev
+            assert "cost_usd_display" in ev
+            assert "created_at" in ev
+            assert ev["idempotency_key"].startswith("ev-a-")
+
+        # Check tenant_b gets only its 1 event
+        r_b = client.get("/usage/events", headers={"X-API-Key": key_b})
+        assert r_b.status_code == 200
+        events_b = r_b.json()
+        assert len(events_b) == 1
+        assert events_b[0]["idempotency_key"] == "ev-b-1"
+
+    def test_cors_preflight(self):
+        headers = {
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "X-API-Key, Idempotency-Key, Content-Type",
+        }
+        r = client.options("/generate", headers=headers)
+        assert r.status_code == 200
+        assert r.headers.get("access-control-allow-origin") == "http://localhost:3000"
+        allow_headers = r.headers.get("access-control-allow-headers", "").lower()
+        assert "x-api-key" in allow_headers
+        assert "idempotency-key" in allow_headers
+        assert "content-type" in allow_headers

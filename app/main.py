@@ -1,8 +1,10 @@
 import logging
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import checkout, cron, generate, health, usage, webhooks
+from app.config import settings
 from app.errors import register_error_handlers
 
 # Structured logging: ISO timestamps, no secrets ever emitted
@@ -12,6 +14,16 @@ logging.basicConfig(
 )
 
 app = FastAPI(title="FlyRank Metering & Billing API")
+
+origins = [settings.web_origin] if settings.web_origin else ["http://localhost:3000"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
+    allow_headers=["X-API-Key", "Idempotency-Key", "Content-Type", "Authorization"],
+    expose_headers=["Idempotent-Replayed"],
+)
 
 register_error_handlers(app)
 app.include_router(health.router)

@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     polar_pro_product_id: str = "polar_product_placeholder"
     polar_server: str = "sandbox"
     app_base_url: str = "http://localhost:8000"
+    web_origin: str = "http://localhost:3000"
     cron_secret: str
 
     model_config = SettingsConfigDict(
