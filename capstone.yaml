@@ -1,0 +1,11 @@
+run: uvicorn app.main:app --port 8000
+seed: python scripts/seed.py
+test: pytest
+base_url: http://localhost:8000
+endpoints:
+  - GET  /health
+  - POST /generate
+  - GET  /usage
+  - POST /checkout
+  - POST /webhooks/polar
+  - GET  /api/cron/reconcile
