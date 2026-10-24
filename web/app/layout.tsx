@@ -3,8 +3,8 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
-  title: "FlyRank - Metering & Billing Demo",
-  description: "Live demo of multi-tenant API metering, quota enforcement, and Polar billing.",
+  title: "HisaabLedger - Metering, Token Accounting & Intelligence",
+  description: "Live precision metering, real-time analytics charts, token accounting, and Neon auth.",
 };
 
 export default function RootLayout({
@@ -20,7 +20,7 @@ export default function RootLayout({
           {children}
         </main>
         <footer className="border-t border-[var(--border-color)] py-6 text-center text-xs text-[var(--text-muted)]">
-          FlyRank Capstone Demo • Evaluator Review Mode
+          HisaabLedger • Precision Metering & AI Ledger Platform
         </footer>
       </body>
     </html>

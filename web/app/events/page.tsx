@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import AuthGate from "@/components/AuthGate";
 import { apiFetch } from "@/lib/api";
 import { UsageEventItem } from "@/lib/types";
-import { ListChecks, RefreshCw, AlertCircle, Database, Layers } from "lucide-react";
+import AnalyticsChart from "@/components/AnalyticsChart";
+import { ListChecks, RefreshCw, AlertCircle, Database, Layers, BarChart2 } from "lucide-react";
 
 export default function EventsPage() {
   const [events, setEvents] = useState<UsageEventItem[]>([]);
@@ -13,7 +14,7 @@ export default function EventsPage() {
 
   const fetchEvents = useCallback(async () => {
     setError(null);
-    const res = await apiFetch<UsageEventItem[]>("/usage/events?limit=20");
+    const res = await apiFetch<UsageEventItem[]>("/usage/events?limit=25");
     if (res.data) {
       setEvents(res.data);
     } else {
@@ -26,14 +27,27 @@ export default function EventsPage() {
     fetchEvents();
   }, [fetchEvents]);
 
+  // Aggregate Real Event Ledger Timeline Analytics
+  const eventTimelineData = [...events]
+    .reverse()
+    .slice(-10)
+    .map((ev, idx) => ({
+      name: `#${idx + 1} (${ev.usage_type.replace('_', ' ')})`,
+      value: ev.quantity,
+      secondary: Math.round(ev.cost_micro_usd / 10),
+      color: ev.usage_type === "api_call" ? "#4f46e5" : "#f59e0b",
+    }));
+
   return (
     <AuthGate>
-      <div className="space-y-6">
+      <div className="max-w-6xl mx-auto py-8 px-4 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[var(--coffee)]">Usage Events</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-[var(--coffee)]">
+              Ledger Events & Audit Trail
+            </h1>
             <p className="text-xs text-[var(--text-muted)] mt-1">
-              Immutable ledger of the latest 20 events recorded for this authenticated tenant.
+              Immutable ledger of events recorded for this tenant in Neon PostgreSQL.
             </p>
           </div>
 
@@ -57,9 +71,28 @@ export default function EventsPage() {
           </div>
         )}
 
+        {/* Ledger Real Analytics View */}
+        {events.length > 0 && (
+          <div className="mb-6">
+            <AnalyticsChart
+              title="Recent Ledger Invocations & Volume"
+              subtitle="Sequence of latest transaction loads across API calls and tokens. Switch views with the dropdown or 3-dots icon."
+              data={
+                eventTimelineData.length > 0
+                  ? eventTimelineData
+                  : [
+                      { name: "Tx 1", value: 1, color: "#4f46e5" },
+                      { name: "Tx 2", value: 250, color: "#f59e0b" },
+                    ]
+              }
+              primaryKeyLabel="Quantity"
+            />
+          </div>
+        )}
+
         {loading ? (
           <div className="p-16 flex flex-col items-center justify-center text-[var(--text-muted)]">
-            <div className="w-8 h-8 border-2 border-[var(--burgundy)] border-t-transparent rounded-full animate-spin mb-3" />
+            <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-3" />
             <span className="text-xs">Loading ledger events...</span>
           </div>
         ) : events.length === 0 ? (
@@ -78,51 +111,51 @@ export default function EventsPage() {
                   <tr className="border-b border-[var(--border-color)] bg-[var(--bg-surface)]/60 text-[var(--text-muted)] font-semibold uppercase tracking-wider">
                     <th className="py-3 px-4">Event Type</th>
                     <th className="py-3 px-4">Quantity</th>
-                    <th className="py-3 px-4">Token Breakdown (In / Cached / Out / Reasoning)</th>
-                    <th className="py-3 px-4">Cost</th>
+                    <th className="py-3 px-4">Token Breakdown</th>
+                    <th className="py-3 px-4">Cost (USD)</th>
                     <th className="py-3 px-4">Idempotency Key</th>
                     <th className="py-3 px-4">Timestamp (UTC)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[var(--border-color)] font-mono">
+                <tbody className="divide-y divide-[var(--border-color)]">
                   {events.map((ev) => (
                     <tr key={ev.id} className="hover:bg-[var(--bg-surface)]/40 transition-colors">
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 font-mono font-medium text-[var(--coffee)]">
                         <span
-                          className={`inline-block px-2 py-0.5 rounded-md text-[11px] font-semibold ${
+                          className={`inline-block px-2 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider ${
                             ev.usage_type === "api_call"
-                              ? "bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
-                              : "bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                              ? "bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-400"
+                              : "bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400"
                           }`}
                         >
                           {ev.usage_type}
                         </span>
                       </td>
-                      <td className="py-3 px-4 font-bold text-[var(--coffee)]">
+                      <td className="py-3 px-4 font-semibold text-[var(--coffee)]">
                         {ev.quantity.toLocaleString()}
                       </td>
-                      <td className="py-3 px-4 text-[11px] text-[var(--text-muted)]">
+                      <td className="py-3 px-4 text-[var(--text-muted)]">
                         {ev.usage_type === "ai_tokens" ? (
-                          <span>
-                            {ev.token_breakdown.input_tokens} / {ev.token_breakdown.cached_input_tokens} /{" "}
-                            {ev.token_breakdown.output_tokens} / {ev.token_breakdown.reasoning_tokens}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
+                            <span title="Input">in:{ev.token_breakdown.input_tokens}</span>
+                            <span>•</span>
+                            <span title="Cached">cached:{ev.token_breakdown.cached_input_tokens}</span>
+                            <span>•</span>
+                            <span title="Output">out:{ev.token_breakdown.output_tokens}</span>
+                            <span>•</span>
+                            <span title="Reasoning">rsn:{ev.token_breakdown.reasoning_tokens}</span>
+                          </div>
                         ) : (
-                          <span className="opacity-40">—</span>
+                          <span className="text-[var(--text-muted)] opacity-60">—</span>
                         )}
                       </td>
-                      <td className="py-3 px-4">
-                        <span className="font-semibold text-[var(--burgundy)]">
-                          {ev.cost_usd_display}
-                        </span>
-                        <span className="text-[10px] text-[var(--text-muted)] block">
-                          {ev.cost_micro_usd} µUSD
-                        </span>
+                      <td className="py-3 px-4 font-mono font-medium text-emerald-600 dark:text-emerald-400">
+                        {ev.cost_usd_display}
                       </td>
-                      <td className="py-3 px-4 text-[11px] text-[var(--text-muted)] truncate max-w-[140px]" title={ev.idempotency_key}>
+                      <td className="py-3 px-4 font-mono text-[11px] text-[var(--text-muted)] max-w-[140px] truncate" title={ev.idempotency_key}>
                         {ev.idempotency_key}
                       </td>
-                      <td className="py-3 px-4 text-[11px] text-[var(--text-muted)] whitespace-nowrap">
+                      <td className="py-3 px-4 text-[var(--text-muted)] whitespace-nowrap">
                         {new Date(ev.created_at).toLocaleString()}
                       </td>
                     </tr>

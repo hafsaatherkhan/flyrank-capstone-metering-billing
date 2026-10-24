@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getStoredApiKey } from "@/lib/api";
-import { KeyRound } from "lucide-react";
+import { getStoredApiKey, getAccessToken } from "@/lib/api";
+import { ShieldAlert } from "lucide-react";
 import Link from "next/link";
+import HisaabLedgerLogo from "./HisaabLedgerLogo";
 
 interface Props {
   children: React.ReactNode;
@@ -13,15 +14,16 @@ interface Props {
 export default function AuthGate({ children }: Props) {
   const router = useRouter();
   const [checked, setChecked] = useState(false);
-  const [hasKey, setHasKey] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
     const key = getStoredApiKey();
-    if (!key) {
-      setHasKey(false);
+    const token = getAccessToken();
+    if (!key && !token) {
+      setAuthenticated(false);
       setChecked(true);
     } else {
-      setHasKey(true);
+      setAuthenticated(true);
       setChecked(true);
     }
   }, []);
@@ -29,27 +31,35 @@ export default function AuthGate({ children }: Props) {
   if (!checked) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-[var(--burgundy)] border-t-transparent" />
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-600 border-t-transparent" />
       </div>
     );
   }
 
-  if (!hasKey) {
+  if (!authenticated) {
     return (
-      <div className="max-w-md mx-auto my-16 p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm text-center">
-        <div className="w-12 h-12 rounded-full bg-[var(--coral-light)] text-[var(--burgundy)] flex items-center justify-center mx-auto mb-4">
-          <KeyRound className="w-6 h-6" />
+      <div className="max-w-md mx-auto my-16 p-8 rounded-3xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm text-center">
+        <div className="flex justify-center mb-5">
+          <HisaabLedgerLogo size={48} showText={false} />
         </div>
-        <h2 className="text-xl font-bold tracking-tight mb-2">Authentication Required</h2>
+        <h2 className="text-xl font-bold tracking-tight mb-2 text-[var(--coffee)]">Authentication Required</h2>
         <p className="text-sm text-[var(--text-muted)] mb-6">
-          Connect your API key to access live metering metrics, test endpoints in the playground, and view usage logs.
+          Please login or create your HisaabLedger account to inspect real-time metering, charts, and API ledgers.
         </p>
-        <Link
-          href="/connect"
-          className="inline-flex items-center justify-center w-full py-2.5 px-4 rounded-xl bg-[var(--burgundy)] text-white font-medium text-sm hover:bg-[var(--burgundy-hover)] transition-all shadow-sm"
-        >
-          Go to Connect Screen
-        </Link>
+        <div className="flex flex-col gap-3">
+          <Link
+            href="/login"
+            className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition-all shadow-sm"
+          >
+            Login to HisaabLedger
+          </Link>
+          <Link
+            href="/signup"
+            className="w-full py-2.5 px-4 rounded-xl border border-[var(--border-color)] text-[var(--coffee)] font-semibold text-sm hover:bg-[var(--bg-surface)] transition-all"
+          >
+            Create New Account
+          </Link>
+        </div>
       </div>
     );
   }

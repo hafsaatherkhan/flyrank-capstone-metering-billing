@@ -81,3 +81,35 @@ class WebhookEvent(Base):
     type = Column(String, nullable=False)
     received_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
     processed_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False)
+    email = Column(String, nullable=False, unique=True, index=True)
+    password_hash = Column(String, nullable=True)  # nullable for OAuth users
+    google_id = Column(String, nullable=True, unique=True, index=True)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=True)
+    api_key = Column(String, nullable=True)  # Plain text display key returned once / available in session
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    token = Column(String, nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    revoked = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    token = Column(String, nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    used = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)

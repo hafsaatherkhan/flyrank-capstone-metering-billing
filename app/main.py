@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import checkout, cron, generate, health, usage, webhooks
+from app.api import auth, checkout, cron, generate, health, usage, webhooks
 from app.config import settings
 from app.errors import register_error_handlers
 
@@ -13,7 +13,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 
-app = FastAPI(title="FlyRank Metering & Billing API")
+app = FastAPI(title="HisaabLedger Metering & Billing API")
 
 origins = [settings.web_origin] if settings.web_origin else ["http://localhost:3000"]
 app.add_middleware(
@@ -27,6 +27,7 @@ app.add_middleware(
 
 register_error_handlers(app)
 app.include_router(health.router)
+app.include_router(auth.router)
 app.include_router(generate.router)
 app.include_router(usage.router)
 app.include_router(checkout.router)
