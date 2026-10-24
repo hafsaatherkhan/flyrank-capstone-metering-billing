@@ -19,6 +19,17 @@ class Settings(BaseSettings):
     reconcile_request_timeout: float = 5.0
     alert_webhook_url: str | None = None
 
+    # SMTP Configuration for Anti-Spam Verified Emails & OTP
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_from_name: str = "HisaabLedger"
+
+    # Google OAuth
+    google_client_id: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

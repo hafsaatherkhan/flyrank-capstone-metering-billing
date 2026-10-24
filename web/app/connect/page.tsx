@@ -60,7 +60,7 @@ export default function ConnectPage() {
   return (
     <div className="max-w-lg mx-auto py-10">
       <div className="p-8 rounded-3xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm">
-        <div className="w-12 h-12 rounded-2xl bg-[var(--coral-light)] text-[var(--burgundy)] flex items-center justify-center mb-5">
+        <div className="w-12 h-12 rounded-2xl bg-[var(--coral-light)] text-[var(--coral)] flex items-center justify-center mb-5">
           <KeyRound className="w-6 h-6" />
         </div>
 
@@ -100,7 +100,7 @@ export default function ConnectPage() {
               placeholder="e.g. 07dcfde3523d..."
               value={keyInput}
               onChange={(e) => setKeyInput(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-base)] text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[var(--burgundy)] transition-all"
+              className="w-full px-4 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-base)] text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[var(--coral)] transition-all"
               autoComplete="off"
               spellCheck={false}
             />
@@ -109,7 +109,7 @@ export default function ConnectPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 rounded-xl bg-[var(--burgundy)] text-white font-medium text-sm hover:bg-[var(--burgundy-hover)] disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-sm"
+            className="w-full py-3 px-4 rounded-xl bg-[var(--coral)] text-white font-medium text-sm hover:bg-[var(--coral)] disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-sm"
           >
             {loading ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -135,7 +135,7 @@ export default function ConnectPage() {
           type="button"
           onClick={handleUseDemoKey}
           disabled={loading}
-          className="w-full py-2.5 px-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] hover:border-[var(--coral)] hover:text-[var(--burgundy)] text-xs font-semibold text-[var(--coffee)] transition-all flex items-center justify-center gap-2"
+          className="w-full py-2.5 px-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] hover:border-[var(--coral)] hover:text-[var(--coral)] text-xs font-semibold text-[var(--coffee)] transition-all flex items-center justify-center gap-2"
         >
           <Sparkles className="w-4 h-4 text-[var(--coral)]" />
           <span>Use Demo Key (Prefilled)</span>

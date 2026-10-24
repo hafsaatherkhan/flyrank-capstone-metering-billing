@@ -1,10 +1,25 @@
 import type { Metadata } from "next";
+import { Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-display",
+});
 
 export const metadata: Metadata = {
   title: "HisaabLedger - Metering, Token Accounting & Intelligence",
   description: "Live precision metering, real-time analytics charts, token accounting, and Neon auth.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon.png", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({
@@ -13,15 +28,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={spaceGrotesk.variable}>
       <body className="antialiased flex flex-col min-h-screen">
         <Navbar />
-        <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8">
+        <main className="flex-1 w-full">
           {children}
         </main>
-        <footer className="border-t border-[var(--border-color)] py-6 text-center text-xs text-[var(--text-muted)]">
-          HisaabLedger • Precision Metering & AI Ledger Platform
-        </footer>
       </body>
     </html>
   );

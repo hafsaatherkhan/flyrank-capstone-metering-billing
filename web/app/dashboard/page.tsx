@@ -126,7 +126,7 @@ function DashboardContent() {
     const pct = (used / limit) * 100;
     if (pct >= 90) return "bg-red-500";
     if (pct >= 80) return "bg-amber-500";
-    return "bg-indigo-600";
+    return "bg-[var(--coral)]";
   };
 
   const isPro = usage?.plan.toLowerCase() === "pro";
@@ -189,7 +189,7 @@ function DashboardContent() {
               <h1 className="text-2xl font-extrabold tracking-tight text-[var(--coffee)]">
                 Metering & Accounting Ledger
               </h1>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[var(--coral-light)] text-[var(--coral)]">
                 Live Neon DB
               </span>
             </div>
@@ -212,7 +212,7 @@ function DashboardContent() {
               <button
                 onClick={handleUpgrade}
                 disabled={upgrading}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white text-xs font-semibold shadow-sm transition-all"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[var(--coral)] to-[var(--coral)] hover:opacity-90 text-white text-xs font-semibold shadow-sm transition-all"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                 <span>{upgrading ? "Redirecting..." : "Upgrade to Pro"}</span>
@@ -235,7 +235,7 @@ function DashboardContent() {
             <div className="p-6 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm">
               <div className="flex items-center justify-between text-xs text-[var(--text-muted)] font-semibold uppercase tracking-wider mb-2">
                 <span>API Calls Meter</span>
-                <Gauge className="w-4 h-4 text-indigo-500" />
+                <Gauge className="w-4 h-4 text-[var(--coral)]" />
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-extrabold text-[var(--coffee)]">
@@ -306,7 +306,7 @@ function DashboardContent() {
         {/* Real Analytics Charts Section with Interactive View Switcher */}
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <Layers className="w-4 h-4 text-[var(--coral)]" />
             <h2 className="text-lg font-bold text-[var(--coffee)] tracking-tight">
               Real Usage Analytics & Visual Ledger
             </h2>

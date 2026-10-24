@@ -45,6 +45,13 @@ class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
 
+class VerifyOtpAndResetPasswordRequest(BaseModel):
+    email: EmailStr
+    otp: str
+    new_password: str
+    confirm_password: str
+
+
 class ChangePasswordRequest(BaseModel):
     token: str
     new_password: str
@@ -268,17 +275,78 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
     user = db.query(User).filter(User.email == payload.email.lower()).first()
     if not user:
         # Don't leak user existence
-        return {"message": "If this email is registered, a password reset link has been issued."}
+        return {"message": "If this email is registered, a 6-digit OTP code has been dispatched to your inbox."}
 
+    # Generate cryptographically secure 6-digit numeric OTP
+    import secrets
+    otp = f"{secrets.randbelow(900000) + 100000}"
     token_str = secrets.token_urlsafe(32)
-    expires = datetime.now(timezone.utc) + timedelta(hours=2)
-    db.add(PasswordResetToken(user_id=user.id, token=token_str, expires_at=expires))
+    expires = datetime.now(timezone.utc) + timedelta(minutes=15)
+
+    # Invalidate previous unused reset tokens for this user
+    db.query(PasswordResetToken).filter(
+        PasswordResetToken.user_id == user.id,
+        PasswordResetToken.used == False,
+    ).update({"used": True})
+
+    db.add(PasswordResetToken(user_id=user.id, token=token_str, otp_code=otp, expires_at=expires))
     db.commit()
 
+    # Deliver via standard SMTP / Email service
+    from app.services.email import send_otp_email
+    send_otp_email(user_email=user.email, otp_code=otp, user_name=user.name)
+
     return {
-        "message": "If this email is registered, a password reset link has been issued.",
-        "reset_token": token_str,  # returned for easy dev/local flow or copied directly
+        "message": "A 6-digit OTP code has been dispatched to your email address.",
     }
+
+
+@router.post("/verify-otp-reset-password")
+def verify_otp_reset_password(
+    payload: VerifyOtpAndResetPasswordRequest, db: Session = Depends(get_db)
+):
+    if payload.new_password != payload.confirm_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password and confirmation do not match.",
+        )
+    if len(payload.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 6 characters long.",
+        )
+
+    user = db.query(User).filter(User.email == payload.email.lower()).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid request or expired OTP.",
+        )
+
+    now = datetime.now(timezone.utc)
+    token_record = (
+        db.query(PasswordResetToken)
+        .filter(
+            PasswordResetToken.user_id == user.id,
+            (PasswordResetToken.otp_code == payload.otp.strip()) | (PasswordResetToken.token == payload.otp.strip()),
+            PasswordResetToken.used == False,
+            PasswordResetToken.expires_at > now,
+        )
+        .first()
+    )
+
+    if not token_record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid, expired, or already used 6-digit OTP code.",
+        )
+
+    # Update password and consume OTP
+    user.password_hash = hash_password(payload.new_password)
+    token_record.used = True
+    db.commit()
+
+    return {"message": "Password reset successfully. You can now login with your new password."}
 
 
 @router.post("/change-password")

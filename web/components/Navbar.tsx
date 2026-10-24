@@ -18,11 +18,12 @@ import {
   Terminal,
   ListChecks,
   LogOut,
-  Sun,
-  Moon,
   User as UserIcon,
   LogIn,
   UserPlus,
+  MousePointer,
+  Sparkles,
+  Info,
 } from "lucide-react";
 
 export default function Navbar() {
@@ -31,7 +32,7 @@ export default function Navbar() {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [user, setUser] = useState<StoredUser | null>(null);
   const [tenant, setTenant] = useState<TenantMe | null>(null);
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [cursorEnabled, setCursorEnabled] = useState<boolean>(true);
 
   useEffect(() => {
     const key = getStoredApiKey();
@@ -47,18 +48,28 @@ export default function Navbar() {
       });
     }
 
-    const savedTheme = localStorage.getItem("hisaabledger_theme") as "light" | "dark" | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-      document.documentElement.setAttribute("data-theme", savedTheme);
+    // Cursor preference
+    const savedCursor = localStorage.getItem("hl-cursor");
+    if (savedCursor !== null) {
+      setCursorEnabled(savedCursor !== "off");
     }
+
+    const handleCursorSync = (e: any) => {
+      if (e.detail?.enabled !== undefined) {
+        setCursorEnabled(e.detail.enabled);
+      }
+    };
+    window.addEventListener("hl-cursor-change" as any, handleCursorSync);
+    return () => {
+      window.removeEventListener("hl-cursor-change" as any, handleCursorSync);
+    };
   }, [pathname]);
 
-  const toggleTheme = () => {
-    const nextTheme = theme === "light" ? "dark" : "light";
-    setTheme(nextTheme);
-    localStorage.setItem("hisaabledger_theme", nextTheme);
-    document.documentElement.setAttribute("data-theme", nextTheme);
+  const toggleCursor = () => {
+    const next = !cursorEnabled;
+    setCursorEnabled(next);
+    localStorage.setItem("hl-cursor", next ? "on" : "off");
+    window.dispatchEvent(new CustomEvent("hl-cursor-change", { detail: { enabled: next } }));
   };
 
   const handleLogout = () => {
@@ -75,6 +86,13 @@ export default function Navbar() {
     { href: "/events", label: "Events & Ledger", icon: ListChecks },
   ];
 
+  const landingQuickLinks = [
+    { href: "/#features", label: "Features" },
+    { href: "/#how", label: "How It Works" },
+    { href: "/about", label: "About" },
+    { href: "/help/faqs", label: "FAQs" },
+  ];
+
   const isLoggedIn = !!apiKey || !!user;
 
   return (
@@ -85,8 +103,21 @@ export default function Navbar() {
             <HisaabLedgerLogo size={36} />
           </Link>
 
+          {/* Quick Navigations */}
+          <nav className="hidden lg:flex items-center gap-1 ml-1 text-xs">
+            {landingQuickLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="px-2.5 py-1.5 rounded-lg font-medium text-[var(--text-muted)] hover:text-[var(--coffee)] hover:bg-[var(--bg-surface)] transition-colors"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+
           {isLoggedIn && (
-            <nav className="hidden sm:flex items-center gap-1 ml-2">
+            <nav className="hidden sm:flex items-center gap-1 border-l border-[var(--border-color)] pl-3 ml-1">
               {navLinks.map((link) => {
                 const Icon = link.icon;
                 const isActive = pathname === link.href;
@@ -94,13 +125,13 @@ export default function Navbar() {
                   <Link
                     key={link.href}
                     href={link.href}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                       isActive
-                        ? "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold"
+                        ? "bg-[var(--coral-light)] text-[var(--coral)] font-semibold"
                         : "text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
                     }`}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className="w-3.5 h-3.5" />
                     {link.label}
                   </Link>
                 );
@@ -109,13 +140,22 @@ export default function Navbar() {
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Custom Cursor Toggle Button */}
           <button
-            onClick={toggleTheme}
-            className="p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] transition-colors"
-            title="Toggle Theme"
+            type="button"
+            onClick={toggleCursor}
+            title={cursorEnabled ? "Disable custom interactive cursor" : "Enable custom interactive cursor"}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
+              cursorEnabled
+                ? "border-[var(--coral)]/40 bg-[var(--coral-light)] text-[var(--coral)]"
+                : "border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--coffee)] hover:bg-[var(--bg-surface)]"
+            }`}
           >
-            {theme === "light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            <MousePointer className={`w-3.5 h-3.5 ${cursorEnabled ? "text-[var(--coral)]" : "opacity-60"}`} />
+            <span className="hidden sm:inline font-mono text-[11px]">
+              Cursor: {cursorEnabled ? "ON" : "OFF"}
+            </span>
           </button>
 
           {isLoggedIn ? (
@@ -126,7 +166,7 @@ export default function Navbar() {
                   <span className="font-semibold text-[var(--coffee)]">
                     {user?.name || tenant.name}
                   </span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-400">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[var(--coral-light)] text-[var(--coral)]">
                     {tenant.plan}
                   </span>
                 </div>
@@ -152,7 +192,7 @@ export default function Navbar() {
               </Link>
               <Link
                 href="/signup"
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 text-white text-xs font-semibold hover:from-indigo-700 hover:to-indigo-800 transition-all shadow-sm"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[var(--coral)] to-[var(--coral)] text-white text-xs font-semibold hover:opacity-90 transition-all shadow-sm"
               >
                 <UserPlus className="w-3.5 h-3.5" />
                 <span>Sign Up</span>

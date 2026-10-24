@@ -92,7 +92,7 @@ export default function EventsPage() {
 
         {loading ? (
           <div className="p-16 flex flex-col items-center justify-center text-[var(--text-muted)]">
-            <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-3" />
+            <div className="w-8 h-8 border-2 border-[var(--coral)] border-t-transparent rounded-full animate-spin mb-3" />
             <span className="text-xs">Loading ledger events...</span>
           </div>
         ) : events.length === 0 ? (
@@ -124,7 +124,7 @@ export default function EventsPage() {
                         <span
                           className={`inline-block px-2 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider ${
                             ev.usage_type === "api_call"
-                              ? "bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-400"
+                              ? "bg-[var(--coral-light)] text-[var(--coral)]"
                               : "bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400"
                           }`}
                         >

@@ -31,7 +31,7 @@ export default function AuthGate({ children }: Props) {
   if (!checked) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-600 border-t-transparent" />
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-[var(--coral)] border-t-transparent" />
       </div>
     );
   }
@@ -49,7 +49,7 @@ export default function AuthGate({ children }: Props) {
         <div className="flex flex-col gap-3">
           <Link
             href="/login"
-            className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition-all shadow-sm"
+            className="w-full py-2.5 px-4 rounded-xl bg-[var(--coral)] text-white font-semibold text-sm hover:opacity-90 transition-all shadow-sm"
           >
             Login to HisaabLedger
           </Link>

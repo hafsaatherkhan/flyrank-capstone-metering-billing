@@ -25,6 +25,14 @@ interface RequestResult {
 }
 
 export default function PlaygroundPage() {
+  return (
+    <AuthGate>
+      <PlaygroundContent />
+    </AuthGate>
+  );
+}
+
+function PlaygroundContent() {
   const [prompt, setPrompt] = useState("Summarize the Q3 financial earnings report.");
   const [inputTokens, setInputTokens] = useState<number>(300);
   const [cachedTokens, setCachedTokens] = useState<number>(50);
@@ -215,7 +223,7 @@ export default function PlaygroundPage() {
                   rows={3}
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-base)] text-xs text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--burgundy)] transition-all resize-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-base)] text-xs text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--coral)] transition-all resize-none"
                 />
               </div>
 
@@ -289,7 +297,7 @@ export default function PlaygroundPage() {
                   type="text"
                   value={idempotencyKey}
                   onChange={(e) => setIdempotencyKey(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-base)] text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--burgundy)]"
+                  className="w-full px-3.5 py-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-base)] text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--coral)]"
                 />
 
                 <div className="mt-3 flex items-center gap-2">
@@ -298,7 +306,7 @@ export default function PlaygroundPage() {
                     id="reuse-key"
                     checked={reuseKey}
                     onChange={(e) => setReuseKey(e.target.checked)}
-                    className="rounded border-[var(--border-color)] text-[var(--burgundy)] focus:ring-[var(--burgundy)]"
+                    className="rounded border-[var(--border-color)] text-[var(--coral)] focus:ring-[var(--coral)]"
                   />
                   <label htmlFor="reuse-key" className="text-xs text-[var(--text-muted)] select-none">
                     Reuse same key on subsequent requests
@@ -312,7 +320,7 @@ export default function PlaygroundPage() {
                   type="button"
                   disabled={loading}
                   onClick={() => handleSend()}
-                  className="w-full py-2.5 px-4 rounded-xl bg-[var(--burgundy)] text-white text-xs font-semibold hover:bg-[var(--burgundy-hover)] disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-sm"
+                  className="w-full py-2.5 px-4 rounded-xl bg-[var(--coral)] text-white text-xs font-semibold hover:bg-[var(--coral)] disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-sm"
                 >
                   {loading ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -328,7 +336,7 @@ export default function PlaygroundPage() {
                   type="button"
                   disabled={loading}
                   onClick={handleSendTwice}
-                  className="w-full py-2 px-4 rounded-xl border border-[var(--coral)] bg-[var(--coral-light)] text-[var(--burgundy)] text-xs font-semibold hover:bg-[var(--coral)] hover:text-white disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-2 px-4 rounded-xl border border-[var(--coral)] bg-[var(--coral-light)] text-[var(--coral)] text-xs font-semibold hover:bg-[var(--coral)] hover:text-white disabled:opacity-50 transition-all flex items-center justify-center gap-2"
                 >
                   <Repeat className="w-3.5 h-3.5" />
                   <span>Send Twice (Verify Idempotency)</span>
@@ -346,7 +354,7 @@ export default function PlaygroundPage() {
               {results.length > 0 && (
                 <button
                   onClick={() => setResults([])}
-                  className="text-xs text-[var(--text-muted)] hover:text-[var(--burgundy)]"
+                  className="text-xs text-[var(--text-muted)] hover:text-[var(--coral)]"
                 >
                   Clear logs
                 </button>

@@ -109,7 +109,8 @@ class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
-    token = Column(String, nullable=False, unique=True, index=True)
+    token = Column(String, nullable=False, unique=True, index=True)  # stores 6-digit OTP or reset string
+    otp_code = Column(String(6), nullable=True, index=True)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     used = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
