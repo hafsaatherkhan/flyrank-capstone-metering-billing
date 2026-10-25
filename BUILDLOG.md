@@ -86,3 +86,34 @@ Chronological audit log tracking AI generations, human corrections, bug fixes, a
   - Concurrency lock was designed as thread-safe non-blocking lock to prevent overlapping runs from duplicating work or overloading the payment provider.
 - **Double-Check for User:**
   - If you use an external alert webhook (e.g., Slack or PagerDuty), set `ALERT_WEBHOOK_URL` in `.env`.
+
+## Phase 6: Web UI Reviewer Demo (Next.js 16 + Tailwind CSS)
+- **AI Generated:**
+  - Added CORS middleware (`app/main.py`) allowing `WEB_ORIGIN` (configured via `app/config.py` and `.env.example`), exposing `Idempotent-Replayed` and permitting `X-API-Key`, `Idempotency-Key`, `Content-Type`, and `Authorization`.
+  - Added `GET /usage/events?limit=20` (`app/api/usage.py`): Tenant-isolated ledger endpoint returning type, quantity, token breakdown (`input`, `cached`, `output`, `reasoning`), micro-USD and formatted USD costs, idempotency key, and created timestamp.
+  - Added `GET /me` (`app/api/usage.py`): Tenant metadata endpoint returning tenant ID, display name, plan tier, and subscription status.
+  - Integration tests in `tests/test_usage.py` testing OPTIONS CORS preflight, `GET /me`, and tenant event isolation.
+  - Scaffolded Next.js App Router application in `web/` with TypeScript, Tailwind CSS, and Lucide icons.
+  - Implemented gender-neutral luxury warm palette: warm beige/surface base (`#fcf9f5`), coffee bean text (`#2e1e1a`), rich burgundy (`#7d1d2e`), and warm coral (`#e06d53`) with full dark theme inversion (`web/app/globals.css`).
+  - Built 3 core reviewer demo pages:
+    - **Connect (`web/app/connect/page.tsx`):** API key input storing keys exclusively in `sessionStorage` with a 1-click "Use demo key" button reading safely from `NEXT_PUBLIC_DEMO_API_KEY`.
+    - **Dashboard (`web/app/dashboard/page.tsx`):** Real-time plan status badge, dual progress bars (API calls & tokens) changing color at 80% (amber) and 100% (red), micro-USD cost breakdown cards, and "Upgrade to Pro" checkout button redirecting to Polar sandbox with automatic status polling on return.
+    - **Playground (`web/app/playground/page.tsx`):** Interactive request simulator for `POST /generate` with token tiers, auto-generated idempotency keys, "Reuse same key" toggle, "Send Twice" button to demonstrate idempotency caching, and color-coded status badges for `200`, `402`, and `429`.
+    - **Events (`web/app/events/page.tsx`):** Tabular ledger view of the tenant's latest 20 events.
+- **Issues & Fixes:**
+  - Prerender warning encountered during Next.js static build on `crypto.randomUUID()` in client component state initializer; resolved by initializing the UUID inside `useEffect` on the client.
+- **Double-Check for User:**
+  - Ensure `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_DEMO_API_KEY` are configured in `web/.env.local`.
+
+## Phase 7: HisaabLedger Auth, OTP Reset, Analytics & UI Expansion
+- **AI Generated / Human Contributed:**
+  - Extended authentication suite in `app/api/auth.py` and `app/services/auth.py` with user signup, login (JWT access + refresh tokens), password change, Google OAuth credential exchange, and 6-digit numeric OTP password reset.
+  - Database models updated in `app/models.py` (`User`, `RefreshToken`, `PasswordResetToken`).
+  - SMTP notification service (`app/services/email.py`) delivering branded HTML verification codes and password recovery emails with secure error fallbacks.
+  - Neon database connection pool hardening (`app/db.py`) switching to `QueuePool` with `pool_size`, `max_overflow`, `pool_recycle` (300s), `pool_timeout`, and `pool_pre_ping=True` tailored for PgBouncer / Neon connection pooling.
+  - Polar checkout environment dynamic binding (`app/api/checkout.py`) reading `settings.polar_server` ("sandbox" or "production").
+  - Frontend expanded into full web portal with branded `HisaabLedger` identity, authentication flows (`/signup`, `/login`, `/forgot-password`, `/change-password`), interactive SVG analytics charts (`web/components/AnalyticsChart.tsx`), marketing landing page (`web/app/page.tsx`), and documentation/help pages (`/about`, `/help/faqs`, `/help/how-to-use`, `/help/what-to-expect`).
+- **Issues & Fixes:**
+  - Centralized JWT secret, algorithm, token expiration, and database connection pool parameters in `app/config.py` rather than loose `os.getenv` calls to ensure strict runtime validation and environment predictability.
+- **Double-Check for User:**
+  - Verify SMTP credentials (`SMTP_USER`, `SMTP_PASSWORD`, `SMTP_HOST`, `SMTP_PORT`) in `.env` if sending real OTP recovery emails.

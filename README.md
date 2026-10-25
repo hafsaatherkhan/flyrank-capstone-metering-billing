@@ -30,24 +30,30 @@ built with **FastAPI**, **PostgreSQL on Neon**, and **Polar.sh sandbox**.
 ```
 Client
   │
-  │ X-API-Key  / Idempotency-Key
+  │ X-API-Key  / Idempotency-Key / Bearer JWT
   ▼
 FastAPI (app/main.py)
-  ├── POST /generate    ──► metering.py ──► quota.py (FOR UPDATE)
-  │                                    └──► pricing.py (integer μ$)
-  ├── GET  /usage       ──► aggregate usage_events
-  ├── POST /checkout    ──► Polar SDK → checkout URL
-  ├── POST /webhooks/polar ──► HMAC verify → billing_sync.py → tenant/subscription
-  ├── GET  /api/cron/reconcile ──► Polar SDK → log mismatches
-  └── GET  /health      ──► DB ping
+  ├── POST /generate           ──► metering.py ──► quota.py (FOR UPDATE)
+  │                                           └──► pricing.py (integer μ$)
+  ├── GET  /usage              ──► aggregate usage_events
+  ├── GET  /usage/events       ──► tenant-isolated latest event records
+  ├── GET  /me                 ──► tenant plan & profile info
+  ├── POST /checkout           ──► Polar SDK → checkout URL (sandbox/prod)
+  ├── POST /webhooks/polar     ──► HMAC verify → billing_sync.py → tenant/subscription
+  ├── GET  /api/cron/reconcile ──► Polar SDK → reconcile & alerts (sync/async)
+  ├── POST /api/auth/*         ──► signup, login, OTP reset, Google OAuth
+  └── GET  /health             ──► DB ping
 
-PostgreSQL on Neon (pooled, NullPool)
+PostgreSQL on Neon (QueuePool / PgBouncer tuned)
   ├── plans
   ├── tenants
   ├── subscriptions
   ├── usage_events    (UNIQUE tenant+ikey+type; index tenant+period+type)
   ├── idempotency_keys
-  └── webhook_events
+  ├── webhook_events
+  ├── users
+  ├── refresh_tokens
+  └── password_reset_tokens
 ```
 
 ---

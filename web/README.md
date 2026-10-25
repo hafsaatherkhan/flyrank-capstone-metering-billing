@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HisaabLedger Web UI & Portal
 
-## Getting Started
+Reviewer and tenant portal interface for the FlyRank Metering & Billing engine, built with **Next.js 16 (App Router)**, **TypeScript**, and **Tailwind CSS**.
 
-First, run the development server:
+---
+
+## Architecture & Layout
+
+- **`app/connect/`**: Connect any tenant with their `X-API-Key` (stored strictly in `sessionStorage`) or 1-click test with `NEXT_PUBLIC_DEMO_API_KEY`.
+- **`app/dashboard/`**: Real-time quota gauges (API calls & tokens) with warning (80%) and hard block (100%) thresholds, micro-USD breakdown, and Polar upgrade checkout button with auto-polling.
+- **`app/playground/`**: Interactive `POST /generate` testing bench with simulated 4-tier token components, auto-generated idempotency keys, "Send Twice" replay verification, and formatted 200/402/429 status badges.
+- **`app/events/`**: Tenant-isolated ledger table of recorded usage events.
+- **`app/(auth)/`**: User management pages (`/login`, `/signup`, `/forgot-password`, `/change-password`) with 6-digit email OTP verification.
+- **`app/help/` & `app/about/`**: Evaluator onboarding, FAQ, and technical expectations guide.
+- **`components/AnalyticsChart.tsx`**: Interactive SVG chart visualizing consumption trends across billing periods.
+
+---
+
+## Local Development
 
 ```bash
+cd web
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Environment Configuration
 
-## Learn More
+Configure `web/.env.local` (safe public variables only):
 
-To learn more about Next.js, take a look at the following resources:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_DEMO_API_KEY=07dcfde3523d291c8cadd51c6fb9929923cf4478fb6e6e2e7aaa0bcf7b336032
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Production Build
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run build
+```
+Generates statically optimized and prerendered routes.

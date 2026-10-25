@@ -1,15 +1,15 @@
-import os
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import jwt
 import bcrypt
+from app.config import settings
 
-SECRET_KEY = os.getenv("JWT_SECRET", "hisaabledger-super-secure-secret-key-2026-auth-prod")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
-REFRESH_TOKEN_EXPIRE_DAYS = 30
+SECRET_KEY = settings.jwt_secret
+ALGORITHM = settings.jwt_algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
+REFRESH_TOKEN_EXPIRE_DAYS = settings.refresh_token_expire_days
 
 def hash_password(password: str) -> str:
     """Hash password using bcrypt."""

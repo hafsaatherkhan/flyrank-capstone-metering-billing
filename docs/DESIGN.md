@@ -26,8 +26,12 @@ PostgreSQL schema implemented via SQLAlchemy/Alembic on Neon:
 ## 3. API Contract
 - `POST /generate`: Authenticated generation entrypoint (`X-API-Key`, `Idempotency-Key`). Validates quota, records usage atomically, returns generated text + usage details.
 - `GET /usage`: Authenticated report for the tenant's current calendar month: consumed vs. limit for calls and tokens.
+- `GET /usage/events`: Authenticated list of tenant's latest discrete usage events (`limit` parameter up to 100), including 4-tier token breakdown and micro-USD cost.
+- `GET /me`: Authenticated endpoint returning tenant name, assigned plan tier, and active subscription status.
 - `POST /checkout`: Authenticated endpoint initiating Polar checkout session for Pro tier upgrade.
 - `POST /webhooks/polar`: Validates raw webhook signatures using Standard Webhooks (`polar_sdk.webhooks.validate_event`), records event ID, updates tenant/subscription tiers.
+- `GET /api/cron/reconcile`: Protected cron reconciliation job with exponential jittered retries, safe alerting, and async execution support (`sync=false`).
+- `POST /api/auth/*`: Tenant user authentication suite (signup, JWT login/refresh, 6-digit email OTP recovery, Google OAuth).
 - `GET /health`: Liveness and DB connectivity check.
 
 ## 4. Idempotency Strategy

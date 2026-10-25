@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import AuthGate from "@/components/AuthGate";
+import ReconciliationCard from "@/components/ReconciliationCard";
 import { apiFetch } from "@/lib/api";
 import { GenerateRequestPayload } from "@/lib/types";
 import {
@@ -411,6 +412,11 @@ function PlaygroundContent() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* FlyRank Capstone: Background Reconciliation & Alerting UI Panel */}
+        <div className="pt-2">
+          <ReconciliationCard />
         </div>
       </div>
     </AuthGate>

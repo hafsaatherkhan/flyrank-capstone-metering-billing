@@ -113,4 +113,6 @@ class PasswordResetToken(Base):
     otp_code = Column(String(6), nullable=True, index=True)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     used = Column(Boolean, nullable=False, default=False)
+    attempt_count = Column(Integer, nullable=False, default=0)   # wrong OTP attempts counter
+    locked = Column(Boolean, nullable=False, default=False)      # True = frozen after too many wrong guesses
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)

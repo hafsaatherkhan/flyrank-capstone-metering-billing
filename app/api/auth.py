@@ -270,12 +270,40 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
     }
 
 
+# OTP resend cooldown: seconds a user must wait before requesting another OTP
+OTP_RESEND_COOLDOWN_SECONDS = 60
+# Maximum wrong OTP attempts before the token is frozen
+OTP_MAX_ATTEMPTS = 5
+
+
 @router.post("/forgot-password")
 def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email.lower()).first()
     if not user:
-        # Don't leak user existence
+        # Don't leak user existence — respond identically for unknown emails
         return {"message": "If this email is registered, a 6-digit OTP code has been dispatched to your inbox."}
+
+    # ── Resend cooldown ────────────────────────────────────────────────────────
+    # Prevent OTP spam: if a valid (unused, not locked) OTP was issued within the
+    # last OTP_RESEND_COOLDOWN_SECONDS, reject the request with 429.
+    cooldown_cutoff = datetime.now(timezone.utc) - timedelta(seconds=OTP_RESEND_COOLDOWN_SECONDS)
+    recent_otp = (
+        db.query(PasswordResetToken)
+        .filter(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.used == False,
+            PasswordResetToken.locked == False,
+            PasswordResetToken.expires_at > datetime.now(timezone.utc),
+            PasswordResetToken.created_at > cooldown_cutoff,
+        )
+        .first()
+    )
+    if recent_otp:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Please wait {OTP_RESEND_COOLDOWN_SECONDS} seconds before requesting a new OTP.",
+        )
+    # ──────────────────────────────────────────────────────────────────────────
 
     # Generate cryptographically secure 6-digit numeric OTP
     import secrets
@@ -283,7 +311,7 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
     token_str = secrets.token_urlsafe(32)
     expires = datetime.now(timezone.utc) + timedelta(minutes=15)
 
-    # Invalidate previous unused reset tokens for this user
+    # Invalidate all previous unused/unlocked reset tokens for this user
     db.query(PasswordResetToken).filter(
         PasswordResetToken.user_id == user.id,
         PasswordResetToken.used == False,
@@ -324,26 +352,61 @@ def verify_otp_reset_password(
         )
 
     now = datetime.now(timezone.utc)
-    token_record = (
+
+    # ── Step 1: Find the active token for this user (regardless of OTP value) ─
+    # We look up the active token first so we can track wrong attempts precisely.
+    active_token = (
         db.query(PasswordResetToken)
         .filter(
             PasswordResetToken.user_id == user.id,
-            (PasswordResetToken.otp_code == payload.otp.strip()) | (PasswordResetToken.token == payload.otp.strip()),
             PasswordResetToken.used == False,
+            PasswordResetToken.locked == False,
             PasswordResetToken.expires_at > now,
         )
+        .order_by(PasswordResetToken.created_at.desc())
         .first()
     )
 
-    if not token_record:
+    if not active_token:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid, expired, or already used 6-digit OTP code.",
+            detail="Invalid, expired, or already used OTP. Please request a new one.",
         )
 
-    # Update password and consume OTP
+    # ── Step 2: Compare the submitted OTP against the active token ────────────
+    submitted = payload.otp.strip()
+    otp_matches = (
+        (active_token.otp_code is not None and active_token.otp_code == submitted)
+        or active_token.token == submitted
+    )
+
+    if not otp_matches:
+        # Increment wrong attempt counter
+        active_token.attempt_count += 1
+        remaining = OTP_MAX_ATTEMPTS - active_token.attempt_count
+
+        if remaining <= 0:
+            # Freeze the token — user must request a fresh OTP
+            active_token.locked = True
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    "Too many incorrect attempts. This OTP has been locked. "
+                    "Please request a new OTP."
+                ),
+            )
+
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Incorrect OTP. {remaining} attempt{'s' if remaining != 1 else ''} remaining before this OTP is locked.",
+        )
+    # ─────────────────────────────────────────────────────────────────────────
+
+    # ── Step 3: Correct OTP — reset password and consume token ───────────────
     user.password_hash = hash_password(payload.new_password)
-    token_record.used = True
+    active_token.used = True
     db.commit()
 
     return {"message": "Password reset successfully. You can now login with your new password."}

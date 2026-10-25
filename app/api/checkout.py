@@ -40,10 +40,10 @@ def create_checkout(
         )
 
     try:
-        # Use Polar SDK client targeting sandbox environment
+        # Use Polar SDK client targeting configured environment (e.g. sandbox or production)
         client = Polar(
             access_token=settings.polar_access_token,
-            environment="sandbox",
+            environment=settings.polar_server,
         )
 
         checkout_session = client.checkouts.create(
