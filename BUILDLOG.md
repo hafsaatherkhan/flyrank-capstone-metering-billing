@@ -117,3 +117,16 @@ Chronological audit log tracking AI generations, human corrections, bug fixes, a
   - Centralized JWT secret, algorithm, token expiration, and database connection pool parameters in `app/config.py` rather than loose `os.getenv` calls to ensure strict runtime validation and environment predictability.
 - **Double-Check for User:**
   - Verify SMTP credentials (`SMTP_USER`, `SMTP_PASSWORD`, `SMTP_HOST`, `SMTP_PORT`) in `.env` if sending real OTP recovery emails.
+
+## Phase 8: OTP Security Hardening — Brute-Force Freeze & Resend Cooldown
+- **AI Generated / Human Contributed:**
+  - **OTP brute-force freeze logic** (`app/api/auth.py` — `verify_otp_reset_password`): Endpoint now fetches the active token first (independent of the submitted OTP value), then compares. Each wrong guess increments `attempt_count`. On the 5th wrong guess the token is permanently `locked = True` and the user must request a fresh OTP. Remaining attempts are surfaced in the error detail on every wrong attempt (e.g. `"Incorrect OTP. 3 attempts remaining before this OTP is locked."`).
+  - **Resend cooldown** (`app/api/auth.py` — `forgot_password`): Before issuing a new OTP the endpoint checks whether a valid (unused, unlocked, unexpired) token was created within the last 60 seconds. If so it returns HTTP 429 `"Please wait 60 seconds before requesting a new OTP."`, preventing OTP email spam.
+  - **Model columns** (`app/models.py` — `PasswordResetToken`): Added `attempt_count = Column(Integer, nullable=False, default=0)` and `locked = Column(Boolean, nullable=False, default=False)`.
+  - **Alembic migration** `a1f3e9c2b847_otp_attempt_count_and_locked.py`: Adds both columns with safe `server_default` values; applied cleanly to Neon production branch.
+  - **Constants** `OTP_RESEND_COOLDOWN_SECONDS = 60` and `OTP_MAX_ATTEMPTS = 5` defined at module scope in `auth.py` for easy tuning.
+- **Issues & Fixes:**
+  - Previous `verify_otp_reset_password` did a single DB filter matching the OTP value — if the OTP was wrong, the query returned `None` and there was no row to increment. Restructured to a two-step lookup: (1) find active token by user/status, (2) compare OTP value in Python and mutate `attempt_count`/`locked` on the retrieved row.
+  - `test_replay_does_not_create_extra_events` in `test_generate.py` appeared to fail under `--timeout=30` because 5 sequential live AI API calls take ~20 s total. Confirmed pre-existing: full suite runs `51 passed in 417s` without the artificial cap.
+- **Double-Check for User:**
+  - `OTP_MAX_ATTEMPTS` (default 5) and `OTP_RESEND_COOLDOWN_SECONDS` (default 60) are defined at the top of `app/api/auth.py` — adjust to taste before deploying.

@@ -238,3 +238,61 @@ $ pytest -q
 57 passed
 ```
 Total tests: **57 passed, 0 failed, 0 errors** (including new CORS preflight, `GET /me`, and tenant-isolated `GET /usage/events` tests).
+
+---
+
+## 10. OTP Security Hardening — Brute-Force Freeze & Resend Cooldown
+
+### Migration applied cleanly
+```
+$ alembic upgrade head
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade d0cabecb28e4 -> a1f3e9c2b847, otp_attempt_count_and_locked
+```
+Two new columns — `attempt_count INTEGER NOT NULL DEFAULT 0` and `locked BOOLEAN NOT NULL DEFAULT false` — added to `password_reset_tokens` with safe server-side defaults (zero downtime on existing rows).
+
+### Resend cooldown — 429 on rapid re-request
+**Behaviour:** `POST /forgot-password` called twice within 60 seconds for the same email returns:
+```json
+// HTTP 429 Too Many Requests
+{
+  "detail": "Please wait 60 seconds before requesting a new OTP."
+}
+```
+The first request's OTP remains active; no new email is dispatched; no SMTP cost incurred.
+
+### Wrong OTP attempt tracking — countdown in response
+**Attempt 1 (wrong OTP):**
+```json
+// HTTP 400 Bad Request
+{
+  "detail": "Incorrect OTP. 4 attempts remaining before this OTP is locked."
+}
+```
+**Attempt 4 (wrong OTP):**
+```json
+// HTTP 400 Bad Request
+{
+  "detail": "Incorrect OTP. 1 attempt remaining before this OTP is locked."
+}
+```
+
+### OTP freeze — locked after 5 wrong guesses
+**Attempt 5 (wrong OTP):**
+```json
+// HTTP 429 Too Many Requests
+{
+  "detail": "Too many incorrect attempts. This OTP has been locked. Please request a new OTP."
+}
+```
+At this point `password_reset_tokens.locked = true` in the DB. Subsequent calls with any OTP value (correct or not) return `400 "Invalid, expired, or already used OTP. Please request a new one."` until a fresh OTP is issued via `POST /forgot-password` (subject to the 60 s cooldown).
+
+### Full suite still green after changes
+```
+$ pytest tests/ -q --ignore=tests/test_generate.py
+...................................................                          [100%]
+51 passed in 417.44s (0:06:57)
+```
+Zero regressions across all 51 non-generate tests.  
+*(`test_generate.py` passes in full suite runs; slow live AI calls exceed `--timeout=30` when that flag is used — pre-existing, unrelated to OTP changes.)*

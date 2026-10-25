@@ -22,6 +22,9 @@ built with **FastAPI**, **PostgreSQL on Neon**, and **Polar.sh sandbox**.
   Standard Webhooks HMAC verification; deduplication via `webhook-id`.
 - **Reconciliation job** — `GET /api/cron/reconcile` (Vercel Cron) compares local
   subscription state with Polar's live API and logs mismatches.
+- **OTP brute-force protection** — password reset OTPs are frozen after 5 wrong
+  guesses (`locked = true`) and a 60-second resend cooldown prevents email spam;
+  all state tracked in Postgres with zero additional infrastructure.
 
 ---
 
@@ -53,7 +56,7 @@ PostgreSQL on Neon (QueuePool / PgBouncer tuned)
   ├── webhook_events
   ├── users
   ├── refresh_tokens
-  └── password_reset_tokens
+  └── password_reset_tokens   (attempt_count + locked for OTP freeze)
 ```
 
 ---
