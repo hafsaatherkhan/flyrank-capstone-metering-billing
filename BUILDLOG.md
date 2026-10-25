@@ -130,3 +130,24 @@ Chronological audit log tracking AI generations, human corrections, bug fixes, a
   - `test_replay_does_not_create_extra_events` in `test_generate.py` appeared to fail under `--timeout=30` because 5 sequential live AI API calls take ~20 s total. Confirmed pre-existing: full suite runs `51 passed in 417s` without the artificial cap.
 - **Double-Check for User:**
   - `OTP_MAX_ATTEMPTS` (default 5) and `OTP_RESEND_COOLDOWN_SECONDS` (default 60) are defined at the top of `app/api/auth.py` — adjust to taste before deploying.
+
+## Phase 9: End-to-End Production & Full-Stack Security Hardening
+- **AI Generated / Human Contributed:**
+  - **Cron Secret Authority Isolation (pp/api/cron.py):** Reverted permissive tenant API key triggers on /api/cron/reconcile. Restricted reconciliation strictly to authorized administrative schedulers via constant-time HMAC header comparison (Authorization: Bearer <CRON_SECRET>), eliminating tenant-level cron abuse.
+  - **Scoped Scanner API Key Prefixes (pp/api/auth.py):** Automated tenant key provisioning formatted with standard k_live_ prefix (k_live_<hex28>). Enables automated secret leak detectors (GitHub Secret Scanning, TruffleHog) to detect exposed keys in repositories.
+  - **Google OAuth Cryptographic Server Verification (pp/api/auth.py):** Upgraded POST /auth/google to verify Google ID tokens directly against Google's tokeninfo API (https://oauth2.googleapis.com/tokeninfo). Verifies digital signature, token audience (ud == google_client_id), and email verification status, protecting against forged Google identities.
+  - **Auth Session Validation (pp/api/auth.py):** Added GET /auth/me with _get_current_user_from_token dependency verifying JWT Bearer token integrity from request headers.
+  - **Frontend Route Protection Middleware (web/middleware.ts):** Implemented Next.js edge middleware enforcing active session cookies (hisaabledger_access_token) on protected routes (/dashboard, /playground, /events, /connect) with automatic redirect to /login?from=<path>.
+  - **HTTP Security Response Headers (web/next.config.ts):** Injected enterprise-grade security headers across all frontend routes:
+    - Content-Security-Policy (CSP): Disallows unauthorized scripts, objects, and framing while permitting Google OAuth and Vercel backends.
+    - Strict-Transport-Security (HSTS): max-age=63072000; includeSubDomains; preload.
+    - X-Frame-Options: DENY (clickjacking defense).
+    - X-Content-Type-Options: nosniff (MIME-type sniffing defense).
+    - Referrer-Policy: strict-origin-when-cross-origin.
+    - Permissions-Policy: camera=(), microphone=(), geolocation=(), browsing-topics=().
+  - **Type-Safe API Client & Auth Gate (web/lib/api.ts, web/components/AuthGate.tsx, web/lib/types.ts):** Centralized API fetch helper with response unwrapping, automatic token inclusion, and typed interfaces for tenants, usage quotas, token breakdowns, and ledger events.
+- **Issues & Fixes:**
+  - Prevented plaintext API key exposure by removing raw API keys from login/signup responses, ensuring user API keys are handled securely.
+  - Maintained complete backward compatibility in Google OAuth mock endpoints during local unit tests while enforcing strict ID token validation for live clients.
+- **Double-Check for User:**
+  - Set GOOGLE_CLIENT_ID in .env if verifying Google OAuth tokens from live frontend clients.

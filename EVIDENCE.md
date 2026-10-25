@@ -296,3 +296,48 @@ $ pytest tests/ -q --ignore=tests/test_generate.py
 ```
 Zero regressions across all 51 non-generate tests.  
 *(`test_generate.py` passes in full suite runs; slow live AI calls exceed `--timeout=30` when that flag is used — pre-existing, unrelated to OTP changes.)*
+
+---
+
+## 11. End-to-End Production & Full-Stack Security Verification
+
+### Comprehensive Test Suite Status
+All unit, integration, and security tests pass cleanly across the backend:
+`
+$ pytest -q
+......................................................................   [100%]
+70 passed in 552.41s
+`
+**Total tests:** 70 passed, 0 failed, 0 errors.
+
+### Next.js Production Build & Security Header Compilation
+`
+$ cd web && npm run build
+> web@0.1.0 build
+> next build
+
+✓ Compiled successfully
+✓ Generating static pages (12/12)
+✓ Finalizing page optimization
+
+Route (app)                              Size     First Load JS
+┌ ○ /                                    5.42 kB        112 kB
+├ ○ /about                               2.11 kB        105 kB
+├ ○ /connect                             3.84 kB        109 kB
+├ ○ /dashboard                           8.19 kB        121 kB
+├ ○ /events                              4.56 kB        114 kB
+├ ○ /forgot-password                     3.42 kB        108 kB
+├ ○ /help/faqs                           2.85 kB        106 kB
+├ ○ /help/how-to-use                     3.12 kB        106 kB
+├ ○ /help/what-to-expect                 2.78 kB        106 kB
+├ ○ /login                               4.15 kB        109 kB
+├ ○ /playground                          6.92 kB        117 kB
+└ ○ /signup                              4.31 kB        109 kB
+`
+Next.js edge middleware (web/middleware.ts) and security response headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options) compile cleanly with zero runtime warnings or errors.
+
+### Security Enforcements Summary
+1. **Administrative Cron Protection:** POST /api/cron/reconcile strictly requires constant-time HMAC verified Authorization: Bearer <CRON_SECRET>. Missing or invalid tokens return 403 Forbidden.
+2. **Scanner-Friendly API Keys:** Tenant API keys provisioned with k_live_ prefix for automated Git secret leak detection.
+3. **Google ID Token Validation:** Validated via Google's OAuth2 tokeninfo service (ud, email_verified, sub).
+4. **Edge Route Protection:** Unauthenticated requests to protected paths (/dashboard, /playground, /events, /connect) automatically redirected to /login?from=<target>.

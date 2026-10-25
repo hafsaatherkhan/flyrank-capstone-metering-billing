@@ -298,6 +298,16 @@ If an `ALERT_WEBHOOK_URL` is configured, alerts are dispatched via HTTP POST wit
 
 ---
 
+## Production & Security Hardening
+
+HisaabLedger implements defence-in-depth across the API, database, and client layers:
+- **Strict Cron Isolation:** POST /api/cron/reconcile strictly requires constant-time HMAC Authorization: Bearer <CRON_SECRET> validation to prevent unauthorized job triggers.
+- **Secret Scanning Ready:** All generated tenant API keys follow standard secret scanning formats (k_live_<hash>) for TruffleHog and GitHub Secret Scanning detection.
+- **OTP Brute-Force & Flood Protection:** 6-digit verification codes freeze automatically after 5 incorrect attempts (locked = true) and enforce a 60-second re-request cooldown (HTTP 429).
+- **Cryptographic OAuth Validation:** Google sign-in verifies Google ID tokens server-side via Google's tokeninfo API (ud, signature, verified email).
+- **HTTP Security Headers & CSP:** Next.js serves strict CSP, HSTS (max-age=63072000; preload), X-Frame-Options: DENY, X-Content-Type-Options: nosniff, and Referrer-Policy.
+- **Edge Route Protection:** Next.js middleware guards application routes (/dashboard, /playground, /events, /connect) against unauthenticated access.
+
 ## Limitations
 
 - No invoicing, proration, or overage billing.
