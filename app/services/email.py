@@ -204,5 +204,5 @@ The HisaabLedger Team
   </body>
 </html>"""
 
-    logger.info(f"[OTP EMAIL GENERATED] Recipient: {user_email} | OTP: {otp_code}")
+    logger.info(f"[OTP EMAIL GENERATED] Password reset OTP sent to recipient")
     return _send_email_via_smtp(user_email, subject, html_content, text_content)

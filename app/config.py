@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     app_base_url: str = "http://localhost:8000"
     web_origin: str = "http://localhost:3000"
     cron_secret: str
-    jwt_secret: str = "hisaabledger-super-secure-secret-key-2026-auth-prod"
+    jwt_secret: str
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     refresh_token_expire_days: int = 30

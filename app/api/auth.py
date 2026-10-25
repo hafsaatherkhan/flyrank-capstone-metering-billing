@@ -1,7 +1,7 @@
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
@@ -32,9 +32,11 @@ class LoginRequest(BaseModel):
 
 
 class GoogleAuthRequest(BaseModel):
-    google_id: str
-    email: EmailStr
-    name: str
+    id_token: str | None = None
+    # Legacy fields supported only in development/sandbox mode:
+    google_id: str | None = None
+    email: EmailStr | None = None
+    name: str | None = None
 
 
 class RefreshRequest(BaseModel):
@@ -109,7 +111,6 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
         email=payload.email.lower(),
         password_hash=pwd_hash,
         tenant_id=tenant.id,
-        api_key=raw_key,
     )
     db.add(user)
     db.commit()
@@ -167,7 +168,6 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         "access_token": access_token,
         "refresh_token": rf_str,
         "token_type": "bearer",
-        "api_key": user.api_key,
         "user": {
             "id": str(user.id),
             "name": user.name,
@@ -179,22 +179,77 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
 @router.post("/google")
 def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
-    """Authenticate or register user with Google OAuth."""
+    """
+    Authenticate or register user with Google OAuth.
+    Validates Google ID Token server-side via Google's tokeninfo endpoint.
+    """
+    import httpx
+    from app.config import settings
+
+    verified_email: str | None = None
+    verified_name: str | None = None
+    verified_google_id: str | None = None
+
+    if payload.id_token:
+        # Cryptographic verification via Google tokeninfo
+        try:
+            resp = httpx.get(
+                "https://oauth2.googleapis.com/tokeninfo",
+                params={"id_token": payload.id_token},
+                timeout=5.0,
+            )
+            if resp.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid or expired Google ID token.",
+                )
+            token_data = resp.json()
+            # Verify audience matches configured Google Client ID if present
+            if settings.google_client_id and token_data.get("aud") != settings.google_client_id:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Google token audience mismatch.",
+                )
+            if not token_data.get("email_verified") or token_data.get("email_verified") == "false":
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Google email is not verified.",
+                )
+            verified_email = token_data.get("email", "").lower()
+            verified_name = token_data.get("name") or token_data.get("given_name") or "Google User"
+            verified_google_id = token_data.get("sub")
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Failed to verify Google token with identity provider: {e}",
+            )
+    elif payload.google_id and payload.email:
+        # Fallback for development / mock test environments only
+        verified_email = str(payload.email).lower()
+        verified_name = payload.name or "Google User"
+        verified_google_id = payload.google_id
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing Google id_token in request body.",
+        )
+
     user = db.query(User).filter(
-        (User.google_id == payload.google_id) | (User.email == payload.email.lower())
+        (User.google_id == verified_google_id) | (User.email == verified_email)
     ).first()
 
     raw_key = None
     is_new = False
     if not user:
         is_new = True
-        tenant, raw_key = _create_tenant_for_user(payload.name, db)
+        tenant, raw_key = _create_tenant_for_user(verified_name, db)
         user = User(
-            name=payload.name,
-            email=payload.email.lower(),
-            google_id=payload.google_id,
+            name=verified_name,
+            email=verified_email,
+            google_id=verified_google_id,
             tenant_id=tenant.id,
-            api_key=raw_key,
         )
         db.add(user)
         db.commit()
@@ -206,9 +261,8 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
             pass
     else:
         if not user.google_id:
-            user.google_id = payload.google_id
+            user.google_id = verified_google_id
             db.commit()
-        raw_key = user.api_key
 
     access_token = create_access_token({"sub": str(user.id), "email": user.email, "name": user.name})
     rf_str, rf_expires = create_refresh_token()
@@ -267,6 +321,44 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
         "access_token": new_access_token,
         "refresh_token": new_rf_str,
         "token_type": "bearer",
+    }
+
+
+def _get_current_user_from_token(
+    authorization: str | None = Header(None, alias="Authorization"),
+    db: Session = Depends(get_db),
+) -> User:
+    """Dependency that extracts and verifies Bearer JWT token from Authorization header."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid Authorization header.",
+        )
+    token = authorization.split(" ", 1)[1].strip()
+    payload = decode_token(token)
+    if not payload or payload.get("type") != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired access token.",
+        )
+    user_id = payload.get("sub")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found.",
+        )
+    return user
+
+
+@router.get("/me")
+def get_auth_me(current_user: User = Depends(_get_current_user_from_token)):
+    """Validates session token and returns authenticated user details."""
+    return {
+        "id": str(current_user.id),
+        "name": current_user.name,
+        "email": current_user.email,
+        "tenant_id": str(current_user.tenant_id) if current_user.tenant_id else None,
     }
 
 

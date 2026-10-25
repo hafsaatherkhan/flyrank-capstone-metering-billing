@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getStoredApiKey, getAccessToken } from "@/lib/api";
+import { getStoredApiKey, getAccessToken, clearSession, apiFetch } from "@/lib/api";
 import { ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import HisaabLedgerLogo from "./HisaabLedgerLogo";
@@ -17,15 +17,66 @@ export default function AuthGate({ children }: Props) {
   const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
-    const key = getStoredApiKey();
-    const token = getAccessToken();
-    if (!key && !token) {
-      setAuthenticated(false);
-      setChecked(true);
-    } else {
-      setAuthenticated(true);
-      setChecked(true);
+    let isMounted = true;
+
+    async function verifyAuth() {
+      const key = getStoredApiKey();
+      const token = getAccessToken();
+
+      // Case 1: No credentials at all
+      if (!key && !token) {
+        if (isMounted) {
+          setAuthenticated(false);
+          setChecked(true);
+        }
+        return;
+      }
+
+      // Case 2: Validate JWT token with backend if present
+      if (token) {
+        try {
+          const res = await apiFetch<{ id: string }>("/auth/me");
+          if (res.status === 200 && res.data) {
+            if (isMounted) {
+              setAuthenticated(true);
+              setChecked(true);
+            }
+            return;
+          }
+        } catch {
+          // Fall through to API key check or reject
+        }
+      }
+
+      // Case 3: Validate API Key with backend if present
+      if (key) {
+        try {
+          const res = await apiFetch<{ id: string }>("/me");
+          if (res.status === 200 && res.data) {
+            if (isMounted) {
+              setAuthenticated(true);
+              setChecked(true);
+            }
+            return;
+          }
+        } catch {
+          // Fall through
+        }
+      }
+
+      // Invalid/expired credentials
+      clearSession();
+      if (isMounted) {
+        setAuthenticated(false);
+        setChecked(true);
+      }
     }
+
+    verifyAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   if (!checked) {
