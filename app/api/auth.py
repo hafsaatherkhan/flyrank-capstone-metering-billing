@@ -61,8 +61,9 @@ class ChangePasswordRequest(BaseModel):
 
 
 def _create_tenant_for_user(user_name: str, db: Session) -> tuple[Tenant, str]:
-    """Helper to provision a dedicated tenant and API key for a registered user."""
-    raw_api_key = secrets.token_hex(32)
+    """Helper to provision a dedicated tenant and scoped API key with standard scanner prefix."""
+    # Prefix format: 'fk_live_' enables automated secret scanners (e.g. GitHub/Trufflehog) to detect leaked keys
+    raw_api_key = f"fk_live_{secrets.token_hex(28)}"
     key_hash = hashlib.sha256(raw_api_key.encode("utf-8")).hexdigest()
     
     # Grab free plan
