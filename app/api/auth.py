@@ -43,6 +43,10 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+class LogoutRequest(BaseModel):
+    refresh_token: str | None = None  # Optional: revoke specific refresh token on logout
+
+
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
@@ -323,6 +327,28 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
         "refresh_token": new_rf_str,
         "token_type": "bearer",
     }
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(payload: LogoutRequest, db: Session = Depends(get_db)):
+    """
+    Server-side logout: revoke the refresh token in the DB.
+    Even if the client clears cookies/localStorage, this ensures
+    a stolen refresh token cannot be used to obtain new access tokens.
+    """
+    if payload.refresh_token:
+        token_record = (
+            db.query(RefreshToken)
+            .filter(
+                RefreshToken.token == payload.refresh_token,
+                RefreshToken.revoked == False,
+            )
+            .first()
+        )
+        if token_record:
+            token_record.revoked = True
+            db.commit()
+    # Always return 204 — don't reveal whether token was valid or not
 
 
 def _get_current_user_from_token(

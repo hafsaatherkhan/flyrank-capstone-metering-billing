@@ -424,7 +424,7 @@ export default function Home() {
               >
                 Hafsa Ather Khan
               </a>{" "}
-              for the 10x Solution Capstone
+              for the FlyRank Internship Capstone
             </div>
           </div>
 

@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server";
 const PROTECTED_PATHS = ["/dashboard", "/playground", "/events", "/connect"];
 const ACCESS_TOKEN_KEY = "hisaabledger_access_token";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isProtected = PROTECTED_PATHS.some(

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   getStoredApiKey,
   getAccessToken,
@@ -18,12 +18,13 @@ import {
   Terminal,
   ListChecks,
   LogOut,
-  User as UserIcon,
   LogIn,
   UserPlus,
-  MousePointer,
+  User as UserIcon,
+  ChevronDown,
+  Settings,
+  CreditCard,
   Sparkles,
-  Info,
 } from "lucide-react";
 
 export default function Navbar() {
@@ -32,7 +33,8 @@ export default function Navbar() {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [user, setUser] = useState<StoredUser | null>(null);
   const [tenant, setTenant] = useState<TenantMe | null>(null);
-  const [cursorEnabled, setCursorEnabled] = useState<boolean>(true);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const key = getStoredApiKey();
@@ -47,32 +49,36 @@ export default function Navbar() {
         if (res.data) setTenant(res.data);
       });
     }
-
-    // Cursor preference
-    const savedCursor = localStorage.getItem("hl-cursor");
-    if (savedCursor !== null) {
-      setCursorEnabled(savedCursor !== "off");
-    }
-
-    const handleCursorSync = (e: any) => {
-      if (e.detail?.enabled !== undefined) {
-        setCursorEnabled(e.detail.enabled);
-      }
-    };
-    window.addEventListener("hl-cursor-change" as any, handleCursorSync);
-    return () => {
-      window.removeEventListener("hl-cursor-change" as any, handleCursorSync);
-    };
   }, [pathname]);
 
-  const toggleCursor = () => {
-    const next = !cursorEnabled;
-    setCursorEnabled(next);
-    localStorage.setItem("hl-cursor", next ? "on" : "off");
-    window.dispatchEvent(new CustomEvent("hl-cursor-change", { detail: { enabled: next } }));
-  };
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    setProfileOpen(false);
+    // Server-side revoke
+    const refreshToken =
+      typeof window !== "undefined"
+        ? document.cookie.match(/hisaabledger_refresh_token=([^;]*)/)?.[1]
+        : null;
+    if (refreshToken) {
+      try {
+        await apiFetch("/auth/logout", {
+          method: "POST",
+          body: JSON.stringify({ refresh_token: decodeURIComponent(refreshToken) }),
+        });
+      } catch {
+        // Proceed even if server call fails
+      }
+    }
     clearSession();
     setApiKey(null);
     setUser(null);
@@ -80,7 +86,7 @@ export default function Navbar() {
     router.push("/login");
   };
 
-  const navLinks = [
+  const appNavLinks = [
     { href: "/dashboard", label: "Dashboard", icon: Gauge },
     { href: "/playground", label: "Playground", icon: Terminal },
     { href: "/events", label: "Events & Ledger", icon: ListChecks },
@@ -93,6 +99,11 @@ export default function Navbar() {
     { href: "/help/faqs", label: "FAQs" },
   ];
 
+  // Detect if we're on a dashboard/app page
+  const isAppPage = appNavLinks.some(
+    (l) => pathname === l.href || pathname.startsWith(l.href + "/")
+  );
+
   const isLoggedIn = !!apiKey || !!user;
 
   return (
@@ -103,22 +114,25 @@ export default function Navbar() {
             <HisaabLedgerLogo size={36} />
           </Link>
 
-          {/* Quick Navigations */}
-          <nav className="hidden lg:flex items-center gap-1 ml-1 text-xs">
-            {landingQuickLinks.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="px-2.5 py-1.5 rounded-lg font-medium text-[var(--text-muted)] hover:text-[var(--coffee)] hover:bg-[var(--bg-surface)] transition-colors"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          {/* Landing quick links — only on non-app pages */}
+          {!isAppPage && (
+            <nav className="hidden lg:flex items-center gap-1 ml-1 text-xs">
+              {landingQuickLinks.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="px-2.5 py-1.5 rounded-lg font-medium text-[var(--text-muted)] hover:text-[var(--coffee)] hover:bg-[var(--bg-surface)] transition-colors"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+          )}
 
-          {isLoggedIn && (
+          {/* App nav links — only on app pages when logged in */}
+          {isAppPage && isLoggedIn && (
             <nav className="hidden sm:flex items-center gap-1 border-l border-[var(--border-color)] pl-3 ml-1">
-              {navLinks.map((link) => {
+              {appNavLinks.map((link) => {
                 const Icon = link.icon;
                 const isActive = pathname === link.href;
                 return (
@@ -141,45 +155,104 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Custom Cursor Toggle Button */}
-          <button
-            type="button"
-            onClick={toggleCursor}
-            title={cursorEnabled ? "Disable custom interactive cursor" : "Enable custom interactive cursor"}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
-              cursorEnabled
-                ? "border-[var(--coral)]/40 bg-[var(--coral-light)] text-[var(--coral)]"
-                : "border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--coffee)] hover:bg-[var(--bg-surface)]"
-            }`}
-          >
-            <MousePointer className={`w-3.5 h-3.5 ${cursorEnabled ? "text-[var(--coral)]" : "opacity-60"}`} />
-            <span className="hidden sm:inline font-mono text-[11px]">
-              Cursor: {cursorEnabled ? "ON" : "OFF"}
-            </span>
-          </button>
-
           {isLoggedIn ? (
-            <div className="flex items-center gap-2">
-              {tenant && (
-                <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="font-semibold text-[var(--coffee)]">
-                    {user?.name || tenant.name}
-                  </span>
+            /* Profile Dropdown */
+            <div className="relative" ref={profileRef}>
+              <button
+                onClick={() => setProfileOpen((v) => !v)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] hover:bg-[var(--bg-surface)] text-xs font-semibold text-[var(--coffee)] transition-all"
+              >
+                <span className="w-6 h-6 rounded-full bg-[var(--coral-light)] flex items-center justify-center">
+                  <UserIcon className="w-3.5 h-3.5 text-[var(--coral)]" />
+                </span>
+                <span className="hidden sm:inline">
+                  {user?.name?.split(" ")[0] || tenant?.name?.split(" ")[0] || "Account"}
+                </span>
+                {tenant && (
                   <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[var(--coral-light)] text-[var(--coral)]">
                     {tenant.plan}
                   </span>
+                )}
+                <ChevronDown
+                  className={`w-3 h-3 text-[var(--text-muted)] transition-transform ${
+                    profileOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {/* Dropdown Menu */}
+              {profileOpen && (
+                <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-lg overflow-hidden z-50">
+                  {/* User Info */}
+                  <div className="px-4 py-3 border-b border-[var(--border-color)]">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-[var(--coral-light)] flex items-center justify-center shrink-0">
+                        <UserIcon className="w-4 h-4 text-[var(--coral)]" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-[var(--coffee)] truncate">
+                          {user?.name || tenant?.name || "User"}
+                        </p>
+                        <p className="text-[11px] text-[var(--text-muted)] truncate">
+                          {user?.email || ""}
+                        </p>
+                      </div>
+                    </div>
+                    {tenant && (
+                      <div className="mt-2 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-[11px] text-[var(--text-muted)]">
+                          Plan:{" "}
+                          <span className="font-semibold text-[var(--coral)] uppercase">
+                            {tenant.plan}
+                          </span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Menu Items */}
+                  <div className="py-1">
+                    <Link
+                      href="/dashboard"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-xs text-[var(--text-muted)] hover:text-[var(--coffee)] hover:bg-[var(--bg-surface)] transition-colors"
+                    >
+                      <Gauge className="w-3.5 h-3.5" />
+                      Dashboard
+                    </Link>
+                    <Link
+                      href="/connect"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-xs text-[var(--text-muted)] hover:text-[var(--coffee)] hover:bg-[var(--bg-surface)] transition-colors"
+                    >
+                      <CreditCard className="w-3.5 h-3.5" />
+                      API Key & Billing
+                    </Link>
+                    {tenant && tenant.plan?.toLowerCase() !== "pro" && (
+                      <Link
+                        href="/dashboard"
+                        onClick={() => setProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-xs text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                        Upgrade to Pro
+                      </Link>
+                    )}
+                  </div>
+
+                  {/* Logout */}
+                  <div className="py-1 border-t border-[var(--border-color)]">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-[var(--text-muted)] hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      Log out
+                    </button>
+                  </div>
                 </div>
               )}
-
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--border-color)] text-xs font-semibold hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-200 dark:hover:border-red-900/50 hover:text-red-600 transition-all text-[var(--text-muted)]"
-                title="Log out"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Logout</span>
-              </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">

@@ -13,7 +13,7 @@ export default function AboutPage() {
 
       <div className="my-10">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-color)] bg-[var(--coral-light)] px-3.5 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--coral)]">
-          <Zap size={11} /> The 10x Solution Story
+          <Zap size={11} /> Internship Capstone Story
         </span>
         <h1 className="mt-4 font-grotesk text-[clamp(2.5rem,5vw,3.75rem)] font-semibold leading-tight tracking-[-0.04em] text-[var(--coffee)]">
           About HisaabLedger
@@ -38,7 +38,7 @@ export default function AboutPage() {
           >
             Hafsa Ather Khan
           </a>{" "}
-          as a full-stack 10x Solution Capstone project for the FlyRank Internship 2026. The
+          as a full-stack Internship Capstone project for the FlyRank Internship 2026. The
           mission: make AI token consumption entirely transparent — from raw model calls to auditable
           financial ledgers that map every dollar back to a tenant, model, and timestamp.
         </p>

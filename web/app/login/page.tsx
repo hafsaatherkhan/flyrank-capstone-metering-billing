@@ -1,11 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { setSessionTokens, setStoredApiKey } from "@/lib/api";
 import HisaabLedgerLogo from "@/components/HisaabLedgerLogo";
-import { Mail, Lock, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Mail, Lock, ArrowRight, AlertCircle, Clock } from "lucide-react";
+
+/** Reads ?reason=session_expired from URL — must be inside <Suspense> */
+function SessionExpiredBanner({ onExpired }: { onExpired: () => void }) {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("reason") === "session_expired") {
+      onExpired();
+    }
+  }, [searchParams, onExpired]);
+  return null;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,6 +24,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +94,11 @@ export default function LoginPage() {
 
   return (
     <div className="max-w-md mx-auto py-12 px-4">
+      {/* useSearchParams must be inside Suspense to avoid prerender blocking */}
+      <Suspense fallback={null}>
+        <SessionExpiredBanner onExpired={() => setSessionExpired(true)} />
+      </Suspense>
+
       <div className="p-8 rounded-3xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm">
         <div className="flex flex-col items-center text-center mb-6">
           <HisaabLedgerLogo size={46} showText={false} />
@@ -92,6 +109,13 @@ export default function LoginPage() {
             Access your HisaabLedger precision analytics & metering
           </p>
         </div>
+
+        {sessionExpired && (
+          <div className="mb-4 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 flex items-start gap-2.5 text-xs text-amber-700 dark:text-amber-400">
+            <Clock className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>Your session has expired. Please log in again to continue.</span>
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 flex items-start gap-2.5 text-xs text-red-700 dark:text-red-400">
