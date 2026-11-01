@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, useMotionValue, useScroll, useSpring, useTransform } from "framer-motion";
-import { ShieldCheck, Zap, BarChart3, UserPlus, LogIn } from "lucide-react";
+import { ShieldCheck, Zap, BarChart3, UserPlus, LogIn, CheckCircle2, Sparkles, ArrowRight } from "lucide-react";
 import HisaabLedgerLogo, { HisaabLedgerMark } from "@/components/HisaabLedgerLogo";
+import { getAccessToken, getStoredApiKey, apiFetch } from "@/lib/api";
 import "./landing.css";
 
 const ease = [0.16, 1, 0.3, 1] as const;
@@ -63,7 +65,27 @@ function Marquee({ reverse = false }: { reverse?: boolean }) {
 }
 
 export default function Home() {
+  const router = useRouter();
   const heroRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    const apiKey = getStoredApiKey();
+    if (token) {
+      // Validate session with backend before redirecting
+      apiFetch("/auth/me").then((res) => {
+        if (res.status === 200) {
+          router.replace("/dashboard");
+        }
+      });
+    } else if (apiKey) {
+      apiFetch("/me").then((res) => {
+        if (res.status === 200) {
+          router.replace("/dashboard");
+        }
+      });
+    }
+  }, [router]);
   const [cursorMotion, setCursorMotion] = useState(true);
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
@@ -359,6 +381,243 @@ export default function Home() {
             </motion.div>
           </Link>
         ))}
+      </section>
+
+      {/* ─── PRICING PLANS ─── */}
+      <section id="pricing" className="bg-[var(--coffee)] px-5 py-28 text-white md:px-10 md:py-36 border-t border-[var(--line)]/10">
+        <div className="mx-auto max-w-[1400px]">
+          <div className="grid gap-8 md:grid-cols-[1fr_1.7fr] mb-20">
+            <div className="text-xs uppercase tracking-[.18em] text-white/50">03 — Transparent Pricing</div>
+            <div>
+              <motion.h2
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-10%" }}
+                transition={{ duration: 0.8, ease }}
+                className="font-grotesk text-[clamp(2.8rem,6vw,6.5rem)] font-medium leading-[.9] tracking-[-.065em]"
+              >
+                Simple, predictable <span className="text-[var(--coral)]">tier limits</span>.
+              </motion.h2>
+              <p className="mt-6 max-w-xl text-base text-white/70 leading-relaxed">
+                Scale from experimentation to enterprise workloads with zero hidden surprises or token inflation.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2 max-w-5xl mx-auto">
+            {/* Free Tier Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              whileHover={{ y: -10, transition: { duration: 0.3 } }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, ease }}
+              className="group relative flex flex-col justify-between rounded-[2.5rem] border border-white/10 bg-white/[0.04] p-8 md:p-10 backdrop-blur-sm transition-all duration-300 hover:border-white/25 hover:bg-white/[0.07] hover:shadow-2xl hover:shadow-black/40"
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs uppercase tracking-widest font-mono text-white/60">Starter Tier</span>
+                  <span className="px-3 py-1 rounded-full text-[11px] font-semibold bg-white/10 text-white transition-colors group-hover:bg-white/20">Default</span>
+                </div>
+                <h3 className="mt-6 font-grotesk text-3xl md:text-4xl font-semibold">Developer Free</h3>
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="font-grotesk text-5xl font-bold">$0</span>
+                  <span className="text-sm text-white/55">/ month</span>
+                </div>
+                <p className="mt-4 text-sm text-white/70 leading-relaxed">
+                  Ideal for testing, sandbox simulations, and learning LLM cost telemetry.
+                </p>
+
+                <div className="mt-8 space-y-3.5 border-t border-white/10 pt-8">
+                  <div className="flex items-center gap-3 text-sm text-white/85">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span><strong>1,000</strong> API calls / month</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-white/85">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span><strong>100,000</strong> AI tokens / month</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-white/85">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Tamper-evident ledger access</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-white/85">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Simulator Playground (GPT-4o, Claude, Gemini)</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-10">
+                <Link
+                  href="/signup"
+                  className="flex items-center justify-center gap-2 w-full py-4 rounded-full border border-white/20 bg-white/5 hover:bg-white/15 hover:border-white/40 text-sm font-semibold transition-all text-white group-hover:scale-[1.02]"
+                >
+                  <span>Start Free</span>
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                </Link>
+              </div>
+            </motion.div>
+
+            {/* Pro Tier Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              whileHover={{ y: -10, transition: { duration: 0.3 } }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.15, ease }}
+              className="group relative flex flex-col justify-between rounded-[2.5rem] border-2 border-[var(--coral)] bg-gradient-to-b from-[var(--coral)]/15 to-transparent p-8 md:p-10 shadow-2xl shadow-[var(--coral)]/10 transition-all duration-300 hover:shadow-[var(--coral)]/25 hover:border-[#ff866d]"
+            >
+              <div className="absolute -top-3.5 right-8">
+                <span className="flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[var(--coral)] text-white shadow-md">
+                  <Sparkles className="w-3 h-3" /> Most Popular
+                </span>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs uppercase tracking-widest font-mono text-[var(--coral)] font-semibold">Scale Tier</span>
+                </div>
+                <h3 className="mt-6 font-grotesk text-3xl md:text-4xl font-semibold">Pro Tier</h3>
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="font-grotesk text-5xl font-bold">$16</span>
+                  <span className="text-sm text-white/55">/ month</span>
+                </div>
+                <p className="mt-4 text-sm text-white/70 leading-relaxed">
+                  For engineering teams running mission-critical multi-tenant AI pipelines.
+                </p>
+
+                <div className="mt-8 space-y-3.5 border-t border-white/10 pt-8">
+                  <div className="flex items-center gap-3 text-sm text-white/95">
+                    <CheckCircle2 className="w-4 h-4 text-[var(--coral)] shrink-0" />
+                    <span><strong>50,000</strong> API calls / month</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-white/95">
+                    <CheckCircle2 className="w-4 h-4 text-[var(--coral)] shrink-0" />
+                    <span><strong>5,000,000</strong> AI tokens / month</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-white/95">
+                    <CheckCircle2 className="w-4 h-4 text-[var(--coral)] shrink-0" />
+                    <span>Full 4-mode Analytics charts (Column, Line, Bar, Pie)</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-white/95">
+                    <CheckCircle2 className="w-4 h-4 text-[var(--coral)] shrink-0" />
+                    <span>Granular tenant cost isolation &amp; rate limit quotas</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-white/95">
+                    <CheckCircle2 className="w-4 h-4 text-[var(--coral)] shrink-0" />
+                    <span>Priority webhook &amp; billing sync</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-10">
+                <Link
+                  href="/signup"
+                  className="flex items-center justify-center gap-2 w-full py-4 rounded-full bg-[var(--coral)] hover:bg-[#d05c42] text-sm font-semibold transition-all text-white shadow-lg shadow-[var(--coral)]/30 group-hover:shadow-[var(--coral)]/50 group-hover:scale-[1.02] active:scale-98"
+                >
+                  <span>Get Started with Pro</span>
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                </Link>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── ABOUT SECTION ON LANDING ─── */}
+      <section id="about" className="bg-[var(--paper)] px-5 py-28 text-[var(--coffee)] md:px-10 md:py-36 border-t border-[var(--line)]">
+        <div className="mx-auto max-w-[1400px]">
+          <div className="grid gap-12 lg:grid-cols-[1fr_1.5fr] items-center">
+            <div>
+              <p className="text-xs uppercase tracking-[.18em] text-[var(--muted)] mb-4">
+                04 — Capstone Mission
+              </p>
+              <h2 className="font-grotesk text-[clamp(2.8rem,5.5vw,5.5rem)] font-medium leading-[.95] tracking-[-.06em]">
+                Built for <span className="text-[var(--coral)]">audit-grade</span> AI accounting.
+              </h2>
+              <p className="mt-6 text-base leading-relaxed text-[var(--muted)]">
+                Most platforms treat LLM token cost as an opaque guessing game. HisaabLedger was built as a full-stack internship capstone project to make AI expenditure completely accountable down to the individual token.
+              </p>
+
+              <div className="mt-8 flex flex-wrap gap-4">
+                <Link
+                  href="/about"
+                  className="inline-flex items-center gap-2 rounded-full bg-[var(--coffee)] px-6 py-3 text-xs font-semibold text-white shadow-md hover:bg-[var(--coral)] transition-all"
+                >
+                  <span>Read Full Story</span>
+                  <Arrow />
+                </Link>
+                <a
+                  href="https://www.linkedin.com/in/hafsa-ather-khan"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full border border-[var(--line)] px-6 py-3 text-xs font-semibold text-[var(--coffee)] hover:bg-[var(--bg-surface)] transition-all"
+                >
+                  <span>Connect with Creator</span>
+                </a>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <motion.div
+                whileHover={{ y: -6, scale: 1.02 }}
+                transition={{ duration: 0.25 }}
+                className="group rounded-3xl border border-[var(--line)] bg-[var(--bg-card)] p-6 shadow-sm hover:shadow-md hover:border-[var(--coral)]/40 transition-all cursor-default"
+              >
+                <div className="w-10 h-10 rounded-xl bg-[var(--coral-light)] flex items-center justify-center text-[var(--coral)] mb-4 font-bold transition-transform group-hover:scale-110">
+                  μ$
+                </div>
+                <h4 className="font-grotesk text-xl font-semibold mb-2 group-hover:text-[var(--coral)] transition-colors">Micro-USD Math</h4>
+                <p className="text-xs text-[var(--muted)] leading-relaxed">
+                  Pure integer calculations prevent IEEE 754 floating-point drift across millions of token calls.
+                </p>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ y: -6, scale: 1.02 }}
+                transition={{ duration: 0.25 }}
+                className="group rounded-3xl border border-[var(--line)] bg-[var(--bg-card)] p-6 shadow-sm hover:shadow-md hover:border-[var(--coral)]/40 transition-all cursor-default"
+              >
+                <div className="w-10 h-10 rounded-xl bg-[var(--bg-surface)] flex items-center justify-center text-[var(--coffee)] mb-4 font-bold transition-transform group-hover:scale-110">
+                  ⚡
+                </div>
+                <h4 className="font-grotesk text-xl font-semibold mb-2 group-hover:text-[var(--coral)] transition-colors">Zero Latency Ingest</h4>
+                <p className="text-xs text-[var(--muted)] leading-relaxed">
+                  Asynchronous telemetry recording ensures your production model latency remains unaffected.
+                </p>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ y: -6, scale: 1.02 }}
+                transition={{ duration: 0.25 }}
+                className="group rounded-3xl border border-[var(--line)] bg-[var(--bg-card)] p-6 shadow-sm hover:shadow-md hover:border-[var(--coral)]/40 transition-all cursor-default"
+              >
+                <div className="w-10 h-10 rounded-xl bg-[var(--bg-surface)] flex items-center justify-center text-[var(--coffee)] mb-4 font-bold transition-transform group-hover:scale-110">
+                  🛡️
+                </div>
+                <h4 className="font-grotesk text-xl font-semibold mb-2 group-hover:text-[var(--coral)] transition-colors">Tenant Quotas</h4>
+                <p className="text-xs text-[var(--muted)] leading-relaxed">
+                  Atomic row-lock limits with proactive rate-limiting halt runaway bills before they strike.
+                </p>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ y: -6, scale: 1.02 }}
+                transition={{ duration: 0.25 }}
+                className="group rounded-3xl border border-[var(--line)] bg-[var(--bg-card)] p-6 shadow-sm hover:shadow-md hover:border-[var(--coral)]/40 transition-all cursor-default"
+              >
+                <div className="w-10 h-10 rounded-xl bg-[var(--coral-light)] flex items-center justify-center text-[var(--coral)] mb-4 font-bold transition-transform group-hover:scale-110">
+                  🔐
+                </div>
+                <h4 className="font-grotesk text-xl font-semibold mb-2 group-hover:text-[var(--coral)] transition-colors">Neon Auth Dual-Tokens</h4>
+                <p className="text-xs text-[var(--muted)] leading-relaxed">
+                  Secure access &amp; refresh token rotations backed by serverless PostgreSQL on Neon.
+                </p>
+              </motion.div>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* ─── CTA ─── */}

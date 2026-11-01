@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import HisaabLedgerLogo from "@/components/HisaabLedgerLogo";
-import { Mail, KeyRound, Lock, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Mail, KeyRound, Lock, ArrowRight, AlertCircle, CheckCircle2, X } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -89,9 +89,30 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="max-w-md mx-auto py-12 px-4">
-      <div className="p-8 rounded-3xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm">
-        <div className="flex flex-col items-center text-center mb-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
+      {/* Background click handler */}
+      <div
+        className="fixed inset-0 -z-10"
+        onClick={() => router.push("/login")}
+        aria-hidden="true"
+      />
+
+      {/* Popup Window Modal */}
+      <div className="relative w-full max-w-md my-auto rounded-3xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-2xl p-7 sm:p-8 animate-in zoom-in-95 duration-200">
+        {/* Top Window Accent Bar */}
+        <div className="absolute top-0 left-8 right-8 h-1 rounded-b bg-gradient-to-r from-transparent via-[var(--coral)] to-transparent opacity-80" />
+
+        {/* Close / Dismiss Button */}
+        <button
+          type="button"
+          onClick={() => router.push("/login")}
+          aria-label="Close"
+          className="absolute top-4 right-4 p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--coffee)] hover:bg-[var(--bg-surface)] transition-colors cursor-pointer"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        <div className="flex flex-col items-center text-center mb-6 pt-1">
           <HisaabLedgerLogo size={46} showText={false} />
           <h1 className="text-2xl font-bold tracking-tight text-[var(--coffee)] mt-3">
             {step === "request" ? "Forgot Password" : "Enter 6-Digit OTP"}

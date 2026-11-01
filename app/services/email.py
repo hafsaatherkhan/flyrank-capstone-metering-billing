@@ -5,6 +5,8 @@ from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
 HEADER_LOGO_SVG_HTML = """
 <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
   <tr>

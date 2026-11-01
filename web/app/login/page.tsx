@@ -3,9 +3,10 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { setSessionTokens, setStoredApiKey } from "@/lib/api";
+import { setSessionTokens, setStoredApiKey, getAccessToken, getStoredApiKey, apiFetch } from "@/lib/api";
 import HisaabLedgerLogo from "@/components/HisaabLedgerLogo";
-import { Mail, Lock, ArrowRight, AlertCircle, Clock } from "lucide-react";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
+import { Mail, Lock, ArrowRight, AlertCircle, Clock, X } from "lucide-react";
 
 /** Reads ?reason=session_expired from URL — must be inside <Suspense> */
 function SessionExpiredBanner({ onExpired }: { onExpired: () => void }) {
@@ -25,6 +26,24 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    const apiKey = getStoredApiKey();
+    if (token) {
+      apiFetch("/auth/me").then((res) => {
+        if (res.status === 200) {
+          router.replace("/dashboard");
+        }
+      });
+    } else if (apiKey) {
+      apiFetch("/me").then((res) => {
+        if (res.status === 200) {
+          router.replace("/dashboard");
+        }
+      });
+    }
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,21 +76,15 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleAuth = async () => {
+  const handleGoogleToken = async (idToken: string) => {
     setLoading(true);
     setError(null);
     try {
-      const simulatedGoogleUser = {
-        google_id: "google_verified_user",
-        name: "Google Authenticated User",
-        email: email.trim() || "demo.ledger.user@gmail.com",
-      };
-
       const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:8000";
       const res = await fetch(`${apiUrl}/auth/google`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(simulatedGoogleUser),
+        body: JSON.stringify({ id_token: idToken }),
       });
 
       const data = await res.json();
@@ -93,14 +106,35 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="max-w-md mx-auto py-12 px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+      {/* Background click handler */}
+      <div
+        className="fixed inset-0 -z-10"
+        onClick={() => router.push("/")}
+        aria-hidden="true"
+      />
+
       {/* useSearchParams must be inside Suspense to avoid prerender blocking */}
       <Suspense fallback={null}>
         <SessionExpiredBanner onExpired={() => setSessionExpired(true)} />
       </Suspense>
 
-      <div className="p-8 rounded-3xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm">
-        <div className="flex flex-col items-center text-center mb-6">
+      {/* Popup Window Modal */}
+      <div className="relative w-full max-w-md rounded-3xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-2xl p-7 sm:p-8 animate-in zoom-in-95 duration-200">
+        {/* Top Window Accent Bar */}
+        <div className="absolute top-0 left-8 right-8 h-1 rounded-b bg-gradient-to-r from-transparent via-[var(--coral)] to-transparent opacity-80" />
+
+        {/* Close / Dismiss Button */}
+        <button
+          type="button"
+          onClick={() => router.push("/")}
+          aria-label="Close"
+          className="absolute top-4 right-4 p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--coffee)] hover:bg-[var(--bg-surface)] transition-colors cursor-pointer"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        <div className="flex flex-col items-center text-center mb-6 pt-1">
           <HisaabLedgerLogo size={46} showText={false} />
           <h1 className="text-2xl font-bold tracking-tight text-[var(--coffee)] mt-3">
             Welcome Back
@@ -125,32 +159,14 @@ export default function LoginPage() {
         )}
 
         {/* Third Party Authenticator: ONLY Google */}
-        <button
-          type="button"
-          onClick={handleGoogleAuth}
-          disabled={loading}
-          className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] hover:bg-[var(--border-color)] text-xs font-semibold text-[var(--coffee)] transition-colors mb-5 disabled:opacity-60"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24">
-            <path
-              fill="#4285F4"
-              d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.05h3.9c2.28-2.1 3.64-5.2 3.64-9.14z"
-            />
-            <path
-              fill="#34A853"
-              d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.9-3.05c-1.08.72-2.45 1.16-4.03 1.16-3.1 0-5.73-2.1-6.68-4.94H1.28v3.15C3.3 21.36 7.37 24 12 24z"
-            />
-            <path
-              fill="#FBBC05"
-              d="M5.32 14.26a7.16 7.16 0 0 1 0-4.52V6.59H1.28a11.97 11.97 0 0 0 0 10.82l4.04-3.15z"
-            />
-            <path
-              fill="#EA4335"
-              d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.37 0 3.3 2.64 1.28 6.59l4.04 3.15c.95-2.84 3.58-4.99 6.68-4.99z"
-            />
-          </svg>
-          <span>Continue with Google</span>
-        </button>
+        <div className="mb-5">
+          <GoogleSignInButton
+            text="continue_with"
+            disabled={loading}
+            onSuccess={handleGoogleToken}
+            onError={(err) => setError(err)}
+          />
+        </div>
 
         <div className="relative my-4 flex items-center justify-center">
           <div className="absolute inset-0 flex items-center">

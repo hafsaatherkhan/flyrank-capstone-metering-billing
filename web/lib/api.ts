@@ -184,12 +184,22 @@ export async function apiFetch<T>(
     const data = isJson ? await res.json() : null;
 
     if (!res.ok) {
-      let errMsg = `Request failed (${res.status})`;
+      let errMsg = "An error occurred while processing your request.";
       if (data && typeof data === "object") {
         if ("detail" in data) {
-          errMsg = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+          if (typeof data.detail === "string") {
+            errMsg = data.detail;
+          } else if (Array.isArray(data.detail)) {
+            // FastAPI pydantic validation errors format: [{loc: [...], msg: "...", type: "..."}]
+            const firstErr = data.detail[0];
+            errMsg = (firstErr && typeof firstErr === "object" && firstErr.msg)
+              ? String(firstErr.msg)
+              : "Invalid request data.";
+          } else if (typeof data.detail === "object" && data.detail !== null) {
+            errMsg = (data.detail as any).message || (data.detail as any).error || "Invalid request.";
+          }
         } else if ("error" in data) {
-          errMsg = typeof data.error === "string" ? data.error : JSON.stringify(data.error);
+          errMsg = typeof data.error === "string" ? data.error : ((data.error as any)?.message || "Request failed.");
         }
       }
       return { data: null, status: res.status, headers: res.headers, error: errMsg };

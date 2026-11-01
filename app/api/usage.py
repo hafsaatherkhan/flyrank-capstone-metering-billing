@@ -8,6 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_tenant
+from app.config import settings
 from app.db import get_db
 from app.models import Plan, Tenant, UsageEvent
 from app.services.metering import get_period_start
@@ -24,7 +25,45 @@ def get_me(
     """
     Return basic profile info for the authenticated tenant:
     tenant name, plan, subscription status.
+    Auto-syncs with Polar live subscriptions if tenant has an active subscription
+    or recently completed checkout.
     """
+    # ── Self-healing sync with Polar sandbox ────────────────────────────────────
+    if tenant.plan_id != 2 and settings.polar_access_token and settings.polar_access_token != "polar_oat_placeholder":
+        try:
+            import httpx
+            base_url = (
+                "https://sandbox-api.polar.sh/v1"
+                if settings.polar_server == "sandbox"
+                else "https://api.polar.sh/v1"
+            )
+            resp = httpx.get(
+                f"{base_url}/subscriptions/",
+                headers={"Authorization": f"Bearer {settings.polar_access_token}"},
+                timeout=3.0,
+            )
+            if resp.status_code == 200:
+                items = resp.json().get("items", [])
+                for item in items:
+                    meta = item.get("metadata") or {}
+                    cust_meta = (item.get("customer") or {}).get("metadata") or {}
+                    ext_id = (item.get("customer") or {}).get("external_id")
+                    if (
+                        meta.get("tenant_id") == str(tenant.id)
+                        or cust_meta.get("tenant_id") == str(tenant.id)
+                        or ext_id == str(tenant.id)
+                    ) and item.get("status") == "active":
+                        pro_plan = db.query(Plan).filter(Plan.name == "pro").first()
+                        if pro_plan:
+                            tenant.plan_id = pro_plan.id
+                            tenant.subscription_status = "active"
+                            db.commit()
+                            db.refresh(tenant)
+                            break
+        except Exception:
+            pass
+    # ──────────────────────────────────────────────────────────────────────────
+
     plan: Plan = db.query(Plan).filter(Plan.id == tenant.plan_id).first()
     return {
         "id": str(tenant.id),

@@ -15,6 +15,8 @@ import {
   AlertTriangle,
   XCircle,
   HelpCircle,
+  Layout,
+  Code2,
 } from "lucide-react";
 
 interface RequestResult {
@@ -49,6 +51,7 @@ function PlaygroundContent() {
   const [reuseKey, setReuseKey] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [results, setResults] = useState<RequestResult[]>([]);
+  const [activeTabs, setActiveTabs] = useState<Record<number, "ui" | "json">>({});
 
   useEffect(() => {
     setIdempotencyKey(generateUuid());
@@ -372,43 +375,133 @@ function PlaygroundContent() {
               </div>
             ) : (
               <div className="space-y-4">
-                {results.map((res, idx) => (
-                  <div
-                    key={idx}
-                    className="p-5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-xs space-y-3"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-color)] pb-3">
-                      <div className="flex items-center gap-2">
-                        {getStatusBadge(res.statusCode, res.isReplayed)}
-                        {res.isReplayed && (
-                          <span className="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 font-mono text-[11px] font-bold border border-sky-200 dark:border-sky-800">
-                            Idempotent-Replayed: true
+                {results.map((res, idx) => {
+                  const b = res.body as Record<string, unknown> | null;
+                  const isSuccess = res.statusCode === 200 && b && typeof b === "object";
+                  const generatedText = isSuccess && typeof b?.generated_text === "string" ? b.generated_text : null;
+                  const usage = isSuccess && typeof b?.usage === "object" && b.usage !== null ? (b.usage as Record<string, number>) : null;
+                  const viewMode = activeTabs[idx] || "ui";
+
+                  return (
+                    <div
+                      key={idx}
+                      className="p-5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-xs space-y-4"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-color)] pb-3">
+                        <div className="flex items-center gap-2">
+                          {getStatusBadge(res.statusCode, res.isReplayed)}
+                          {res.isReplayed && (
+                            <span className="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 font-mono text-[11px] font-bold border border-sky-200 dark:border-sky-800">
+                              Idempotent-Replayed: true
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Card Tabs: UI View vs Raw JSON */}
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center bg-[var(--bg-surface)] p-0.5 rounded-lg border border-[var(--border-color)]">
+                            <button
+                              type="button"
+                              onClick={() => setActiveTabs((prev) => ({ ...prev, [idx]: "ui" }))}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
+                                viewMode === "ui"
+                                  ? "bg-[var(--coral)] text-white shadow-xs"
+                                  : "text-[var(--text-muted)] hover:text-[var(--coffee)]"
+                              }`}
+                            >
+                              <Layout className="w-3 h-3" />
+                              <span>UI Card</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setActiveTabs((prev) => ({ ...prev, [idx]: "json" }))}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
+                                viewMode === "json"
+                                  ? "bg-[var(--coral)] text-white shadow-xs"
+                                  : "text-[var(--text-muted)] hover:text-[var(--coffee)]"
+                              }`}
+                            >
+                              <Code2 className="w-3 h-3" />
+                              <span>Raw JSON</span>
+                            </button>
+                          </div>
+                          <span className="text-[11px] font-mono text-[var(--text-muted)]">
+                            {res.timestamp}
                           </span>
-                        )}
+                        </div>
                       </div>
-                      <span className="text-[11px] font-mono text-[var(--text-muted)]">
-                        {res.timestamp}
-                      </span>
-                    </div>
 
-                    <div>
-                      <span className="text-[11px] font-semibold text-[var(--text-muted)] block mb-1">
-                        Response Body
-                      </span>
-                      <pre className="p-3 rounded-xl bg-[var(--bg-base)] border border-[var(--border-color)] text-xs font-mono overflow-x-auto max-h-56 leading-relaxed">
-                        {JSON.stringify(res.body, null, 2)}
-                      </pre>
-                    </div>
+                      {/* Tab 1: UI Card View */}
+                      {viewMode === "ui" ? (
+                        <div className="space-y-3.5">
+                          {generatedText ? (
+                            <div className="p-4 rounded-xl bg-gradient-to-br from-[var(--bg-surface)] to-[var(--bg-base)] border border-[var(--border-color)]">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--coral)] block mb-1.5">
+                                AI Generated Output
+                              </span>
+                              <p className="text-xs font-medium text-[var(--coffee)] leading-relaxed">
+                                {generatedText}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-800 dark:text-amber-300 text-xs">
+                              {typeof b?.error === "string"
+                                ? b.error
+                                : "Request completed with no generated output."}
+                            </div>
+                          )}
 
-                    <div className="text-[10px] text-[var(--text-muted)] font-mono flex items-center gap-2">
-                      <span>Server: Fastify / Uvicorn</span>
-                      <span>•</span>
-                      <span>
-                        Key: {res.headers["idempotency-key"] || "replayed-cache"}
-                      </span>
+                          {usage && (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                              <div className="p-2.5 rounded-xl bg-[var(--bg-base)] border border-[var(--border-color)]">
+                                <span className="text-[10px] text-[var(--text-muted)] font-semibold block">Total Tokens</span>
+                                <span className="text-sm font-bold text-[var(--coffee)]">{usage.total_tokens?.toLocaleString() ?? 0}</span>
+                              </div>
+                              <div className="p-2.5 rounded-xl bg-[var(--bg-base)] border border-[var(--border-color)]">
+                                <span className="text-[10px] text-[var(--text-muted)] font-semibold block">Input / Cached</span>
+                                <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                                  {usage.input_tokens ?? 0} <span className="text-[10px] text-[var(--text-muted)]">/ {usage.cached_input_tokens ?? 0}</span>
+                                </span>
+                              </div>
+                              <div className="p-2.5 rounded-xl bg-[var(--bg-base)] border border-[var(--border-color)]">
+                                <span className="text-[10px] text-[var(--text-muted)] font-semibold block">Output / Reasoning</span>
+                                <span className="text-sm font-bold text-amber-600 dark:text-amber-400">
+                                  {usage.output_tokens ?? 0} <span className="text-[10px] text-[var(--text-muted)]">/ {usage.reasoning_tokens ?? 0}</span>
+                                </span>
+                              </div>
+                              <div className="p-2.5 rounded-xl bg-[var(--bg-base)] border border-[var(--border-color)]">
+                                <span className="text-[10px] text-[var(--text-muted)] font-semibold block">Cost (micro-USD)</span>
+                                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                                  ${(((usage.api_call_cost_micro_usd || 0) + (usage.token_cost_micro_usd || 0)) / 1_000_000).toFixed(6)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        /* Tab 2: Raw JSON View */
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[11px] font-semibold text-[var(--text-muted)]">
+                              Response Body (JSON)
+                            </span>
+                          </div>
+                          <pre className="p-3.5 rounded-xl bg-[var(--bg-base)] border border-[var(--border-color)] text-xs font-mono overflow-x-auto max-h-64 leading-relaxed">
+                            {JSON.stringify(res.body, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+
+                      <div className="text-[10px] text-[var(--text-muted)] font-mono flex items-center justify-between border-t border-[var(--border-color)]/60 pt-2.5">
+                        <div className="flex items-center gap-2">
+                          <span>Server: Fastify / Uvicorn</span>
+                          <span>•</span>
+                          <span>Key: {res.headers["idempotency-key"] || "replayed-cache"}</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

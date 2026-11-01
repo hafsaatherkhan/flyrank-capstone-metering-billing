@@ -2,7 +2,7 @@
 Checkout API route for creating Polar subscriptions.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Header, status
 from sqlalchemy.orm import Session
 from polar.v2027_01 import Polar
 from polar.base import PolarClientError
@@ -10,8 +10,9 @@ from polar.base import PolarClientError
 from app.api.deps import get_tenant
 from app.config import settings
 from app.db import get_db
-from app.models import Tenant
+from app.models import Tenant, User
 from app.schemas import CheckoutResponse
+from app.services.auth import decode_token
 
 router = APIRouter()
 
@@ -23,7 +24,7 @@ def create_checkout(
 ):
     """
     Create a Polar checkout session for upgrading to the Pro plan.
-    - Tenant must be authenticated via X-API-Key.
+    - Tenant can be authenticated via X-API-Key OR JWT Bearer token.
     - Passes tenant.id as external_customer_id and in metadata so webhooks can identify the tenant.
     - Configured for the sandbox environment.
     """
@@ -40,32 +41,56 @@ def create_checkout(
         )
 
     try:
-        # Use Polar SDK client targeting configured environment (e.g. sandbox or production)
-        client = Polar(
-            access_token=settings.polar_access_token,
-            environment=settings.polar_server,
+        # Use direct httpx call to Polar API to avoid SDK version deserialization issue
+        # (polar SDK 1.0.2 fails adapting product_price_id on the new Checkout response schema)
+        base_url = (
+            "https://sandbox-api.polar.sh/v1"
+            if settings.polar_server == "sandbox"
+            else "https://api.polar.sh/v1"
         )
+        headers = {
+            "Authorization": f"Bearer {settings.polar_access_token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+        payload = {
+            "products": [settings.polar_pro_product_id],
+            "external_customer_id": str(tenant.id),
+            "metadata": {"tenant_id": str(tenant.id)},
+            "customer_metadata": {"tenant_id": str(tenant.id)},
+            "success_url": f"{settings.web_origin}/dashboard?checkout=success",
+        }
 
-        checkout_session = client.checkouts.create(
-            products=[settings.polar_pro_product_id],
-            external_customer_id=str(tenant.id),
-            metadata={"tenant_id": str(tenant.id)},
-            customer_metadata={"tenant_id": str(tenant.id)},
-            success_url=f"{settings.app_base_url}/checkout/success",
-        )
+        import httpx
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.post(f"{base_url}/checkouts/", headers=headers, json=payload)
+            if resp.status_code >= 400:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="Billing service is temporarily unavailable. Please try again later.",
+                )
+            data = resp.json()
+
+        checkout_url = data.get("url")
+        checkout_id = data.get("id")
+
+        if not checkout_url or not checkout_id:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Billing service is temporarily unavailable. Please try again later.",
+            )
 
         return CheckoutResponse(
-            checkout_url=checkout_session.url,
-            checkout_id=checkout_session.id,
+            checkout_url=checkout_url,
+            checkout_id=checkout_id,
         )
 
-    except PolarClientError as err:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Polar API error: {err}",
-        )
+    except HTTPException:
+        raise
     except Exception as err:
+        import logging
+        logging.getLogger("app.billing").error(f"Failed to create checkout session: {err}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create checkout session: {err}",
+            detail="Billing service is temporarily unavailable. Please try again later.",
         )

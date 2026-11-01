@@ -16,6 +16,8 @@ import {
   CreditCard,
   Sparkles,
   Layers,
+  X,
+  Crown,
 } from "lucide-react";
 
 interface UsageEventItem {
@@ -50,6 +52,7 @@ function DashboardContent() {
   const [upgrading, setUpgrading] = useState(false);
   const [pollingPro, setPollingPro] = useState(false);
   const [pollCount, setPollCount] = useState(0);
+  const [showProSuccess, setShowProSuccess] = useState(false);
 
   const fetchUsage = useCallback(async () => {
     setError(null);
@@ -99,7 +102,12 @@ function DashboardContent() {
       if (res.data && res.data.plan.toLowerCase() === "pro") {
         setPollingPro(false);
         clearInterval(interval);
+        setShowProSuccess(true); // 🎉 Show success popup!
         fetchUsage();
+        // Clean up the ?checkout=success URL param
+        if (typeof window !== "undefined") {
+          window.history.replaceState({}, "", "/dashboard");
+        }
       }
     }, 2500);
 
@@ -117,7 +125,7 @@ function DashboardContent() {
       window.location.href = res.data.checkout_url;
     } else {
       setUpgrading(false);
-      setError(res.error || "Failed to start checkout. Verify Polar sandbox configuration.");
+      setError("Payment and billing service is currently unavailable. Please try again in a few moments.");
     }
   };
 
@@ -182,6 +190,65 @@ function DashboardContent() {
   return (
     <AuthGate>
       <div className="max-w-6xl mx-auto py-8 px-4 space-y-8">
+
+        {/* ✅ Pro Upgrade Success Modal */}
+        {showProSuccess && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.55)" }}>
+            <div className="relative w-full max-w-md rounded-3xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-2xl overflow-hidden">
+              {/* Gradient top bar */}
+              <div className="h-1.5 w-full bg-gradient-to-r from-amber-400 via-[var(--coral)] to-purple-500" />
+
+              <button
+                onClick={() => setShowProSuccess(false)}
+                className="absolute top-4 right-4 p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--coffee)] hover:bg-[var(--bg-surface)] transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="px-8 py-8 text-center">
+                {/* Icon */}
+                <div className="mx-auto mb-5 w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-[var(--coral)] flex items-center justify-center shadow-lg">
+                  <Crown className="w-8 h-8 text-white" />
+                </div>
+
+                <h2 className="text-xl font-extrabold text-[var(--coffee)] tracking-tight mb-2">
+                  Welcome to Pro! 🎉
+                </h2>
+                <p className="text-sm text-[var(--text-muted)] leading-relaxed mb-1">
+                  Your account has been successfully upgraded to the
+                </p>
+                <span className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest bg-gradient-to-r from-amber-400 to-[var(--coral)] text-white mb-5">
+                  PRO Plan
+                </span>
+
+                <div className="grid grid-cols-2 gap-3 mb-6 text-left">
+                  {[
+                    { label: "API Calls", value: "10,000 / mo" },
+                    { label: "AI Tokens", value: "1,000,000 / mo" },
+                    { label: "Analytics", value: "Full access" },
+                    { label: "Support", value: "Priority" },
+                  ].map((item) => (
+                    <div key={item.label} className="flex items-start gap-2 p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-color)]">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-[var(--text-muted)] font-medium uppercase tracking-wider">{item.label}</p>
+                        <p className="text-xs font-bold text-[var(--coffee)]">{item.value}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => setShowProSuccess(false)}
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-[var(--coral)] text-white text-sm font-bold hover:opacity-90 transition-all shadow-sm"
+                >
+                  Start Exploring Pro ✨
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -207,17 +274,6 @@ function DashboardContent() {
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
               <span>Refresh</span>
             </button>
-
-            {!isPro && (
-              <button
-                onClick={handleUpgrade}
-                disabled={upgrading}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[var(--coral)] to-[var(--coral)] hover:opacity-90 text-white text-xs font-semibold shadow-sm transition-all"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                <span>{upgrading ? "Redirecting..." : "Upgrade to Pro"}</span>
-              </button>
-            )}
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
@@ -59,7 +60,8 @@ class VerifyOtpAndResetPasswordRequest(BaseModel):
 
 
 class ChangePasswordRequest(BaseModel):
-    token: str
+    token: Optional[str] = None
+    current_password: Optional[str] = None
     new_password: str
     confirm_password: str
 
@@ -532,7 +534,11 @@ def verify_otp_reset_password(
 
 
 @router.post("/change-password")
-def change_password(payload: ChangePasswordRequest, db: Session = Depends(get_db)):
+def change_password(
+    payload: ChangePasswordRequest,
+    authorization: str | None = Header(None, alias="Authorization"),
+    db: Session = Depends(get_db)
+):
     if payload.new_password != payload.confirm_password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -542,6 +548,43 @@ def change_password(payload: ChangePasswordRequest, db: Session = Depends(get_db
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Password must be at least 6 characters long.",
+        )
+
+    # Mode 1: Logged-in user changing password using current_password & Bearer token
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+        jwt_payload = decode_token(token)
+        if not jwt_payload or jwt_payload.get("type") != "access":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired access token.",
+            )
+        user_id = jwt_payload.get("sub")
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+        if not payload.current_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is required.",
+            )
+
+        if not user.password_hash or not verify_password(payload.current_password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect.",
+            )
+
+        user.password_hash = hash_password(payload.new_password)
+        db.commit()
+        return {"message": "Password updated successfully."}
+
+    # Mode 2: Reset token based change password
+    if not payload.token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either reset token or current password is required.",
         )
 
     now = datetime.now(timezone.utc)
