@@ -61,16 +61,17 @@ export function getAccessToken(): string | null {
 
 export function getRefreshToken(): string | null {
   if (typeof window === "undefined") return null;
-  return getCookie(REFRESH_TOKEN_KEY) || localStorage.getItem(REFRESH_TOKEN_KEY);
+  return getCookie(REFRESH_TOKEN_KEY) || sessionStorage.getItem(REFRESH_TOKEN_KEY) || localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
 export function setSessionTokens(access: string, refresh: string, user?: StoredUser): void {
   if (typeof window === "undefined") return;
   setCookie(ACCESS_TOKEN_KEY, access, 1);
-  // Refresh token: cookie ONLY — do NOT put in localStorage (XSS risk)
-  setCookie(REFRESH_TOKEN_KEY, refresh, 7);
-  // Access token in localStorage is acceptable (60-min lifetime, low blast radius)
+  // Match backend refresh_token_expire_days (30 days)
+  setCookie(REFRESH_TOKEN_KEY, refresh, 30);
   localStorage.setItem(ACCESS_TOKEN_KEY, access);
+  // Store in sessionStorage as fallback in case cookies are partitioned/blocked
+  sessionStorage.setItem(REFRESH_TOKEN_KEY, refresh);
   if (user) {
     localStorage.setItem(USER_DATA_KEY, JSON.stringify(user));
   }
@@ -96,6 +97,7 @@ export function clearSession(): void {
   localStorage.removeItem(USER_DATA_KEY);
   // Ensure sessionStorage is also cleared
   sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+  sessionStorage.removeItem(REFRESH_TOKEN_KEY);
   sessionStorage.removeItem(USER_DATA_KEY);
 }
 
@@ -104,37 +106,51 @@ export interface ApiFetchOptions extends RequestInit {
   _isRetry?: boolean; // internal flag to prevent infinite refresh loops
 }
 
+// Mutex promise to deduplicate concurrent refresh requests and avoid race conditions
+let refreshPromise: Promise<string | null> | null = null;
+
 /**
  * Attempts to refresh the access token using the stored refresh token.
- * If successful, updates stored tokens and returns the new access token.
+ * Uses a singleton promise to ensure concurrent requests share the same refresh call,
+ * preventing race condition re-use of rotated single-use refresh tokens.
  * If refresh fails (token expired/revoked), clears session and redirects to login.
  */
 async function tryRefreshToken(): Promise<string | null> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return null;
-
-  try {
-    const res = await fetch(`${API_URL}/auth/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    });
-
-    if (!res.ok) {
-      // Refresh token is expired or revoked — force logout
-      clearSession();
-      if (typeof window !== "undefined") {
-        window.location.href = "/login?reason=session_expired";
-      }
-      return null;
-    }
-
-    const data = await res.json();
-    setSessionTokens(data.access_token, data.refresh_token);
-    return data.access_token as string;
-  } catch {
-    return null;
+  if (refreshPromise) {
+    return refreshPromise;
   }
+
+  refreshPromise = (async () => {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return null;
+
+    try {
+      const res = await fetch(`${API_URL}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+
+      if (!res.ok) {
+        // Refresh token is expired or revoked — force logout
+        clearSession();
+        if (typeof window !== "undefined") {
+          window.location.href = "/login?reason=session_expired";
+        }
+        return null;
+      }
+
+      const data = await res.json();
+      setSessionTokens(data.access_token, data.refresh_token);
+      return data.access_token as string;
+    } catch {
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
 }
 
 export async function apiFetch<T>(

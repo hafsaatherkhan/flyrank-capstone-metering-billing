@@ -35,6 +35,7 @@ import {
   Compass,
   FileText,
   Info,
+  Lock,
 } from "lucide-react";
 import { CheckoutResponse } from "@/lib/types";
 
@@ -395,6 +396,18 @@ export default function Navbar() {
                         >
                           <CreditCard className="w-4 h-4 text-[var(--text-muted)]" />
                           <span>API Key &amp; Billing</span>
+                        </Link>
+                        <Link
+                          href="/change-password"
+                          onClick={() => setDrawerOpen(false)}
+                          className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
+                            pathname === "/change-password"
+                              ? "bg-[var(--coral-light)] text-[var(--coral)] font-semibold"
+                              : "text-[var(--coffee)] hover:bg-[var(--bg-surface)]"
+                          }`}
+                        >
+                          <Lock className="w-4 h-4 text-[var(--text-muted)]" />
+                          <span>Change Password</span>
                         </Link>
                       </div>
                     </div>

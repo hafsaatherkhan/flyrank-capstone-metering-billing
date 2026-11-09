@@ -1,15 +1,10 @@
-import Link from "next/link";
-import { ArrowLeft, Zap, BarChart3, ShieldCheck } from "lucide-react";
+import { Zap, BarChart3, ShieldCheck } from "lucide-react";
+import BackButton from "@/components/BackButton";
 
 export default function AboutPage() {
   return (
     <div className="mx-auto max-w-[1140px] px-6 py-12 md:py-16">
-      <Link
-        href="/"
-        className="inline-flex items-center gap-2 rounded-full border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-2 text-xs font-semibold text-[var(--coffee)] shadow-sm transition-all hover:bg-[var(--coffee)] hover:text-[var(--coral)] hover:border-[var(--coffee)]"
-      >
-        <ArrowLeft size={14} /> Back to HisaabLedger
-      </Link>
+      <BackButton />
 
       <div className="my-10">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-color)] bg-[var(--coral-light)] px-3.5 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--coral)]">

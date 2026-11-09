@@ -299,8 +299,9 @@ class TestInvalidInput:
             json={"prompt": "hi", "simulated_usage": SMALL_USAGE},
             headers={"Idempotency-Key": "k1"},
         )
-        # FastAPI 422 when required Header is absent
-        assert r.status_code == 422
+        # X-API-Key is optional (Header(None, ...)) so FastAPI doesn't reject
+        # with 422 — the auth dependency runs and raises 401 Unauthorized.
+        assert r.status_code == 401
 
     def test_missing_idempotency_key_header_returns_422(self, db, free_tenant):
         _, key, _ = free_tenant

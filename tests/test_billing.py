@@ -80,6 +80,37 @@ class TestCheckout:
             assert url == "https://sandbox.polar.sh/checkout/chk_12345"
             assert cid == "chk_12345"
 
+    def test_checkout_prefills_customer_email(self, db, free_tenant):
+        from app.models import User
+        tenant, raw_key, _ = free_tenant
+
+        user = User(
+            name="Test User",
+            email="testuser@example.com",
+            tenant_id=tenant.id,
+        )
+        db.add(user)
+        db.commit()
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "url": "https://sandbox.polar.sh/checkout/chk_prefill",
+            "id": "chk_prefill",
+        }
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.__enter__.return_value = mock_client_instance
+        mock_client_instance.post.return_value = mock_resp
+
+        with patch("app.api.checkout.httpx.Client", return_value=mock_client_instance):
+            resp = client.post("/checkout", headers={"X-API-Key": raw_key})
+            assert resp.status_code == 200
+            mock_client_instance.post.assert_called_once()
+            called_json = mock_client_instance.post.call_args.kwargs.get("json", {})
+            assert called_json.get("customer_email") == "testuser@example.com"
+            assert called_json.get("customer_name") == "Test User"
+
 
 class TestWebhooksPolar:
     @pytest.fixture(autouse=True)

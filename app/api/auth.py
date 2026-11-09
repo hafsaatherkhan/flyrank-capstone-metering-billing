@@ -25,6 +25,11 @@ class SignupRequest(BaseModel):
     email: EmailStr
     password: str
     confirm_password: str
+    company_name: Optional[str] = None
+
+
+class InstantKeyRequest(BaseModel):
+    company_name: Optional[str] = None
 
 
 class LoginRequest(BaseModel):
@@ -66,7 +71,7 @@ class ChangePasswordRequest(BaseModel):
     confirm_password: str
 
 
-def _create_tenant_for_user(user_name: str, db: Session) -> tuple[Tenant, str]:
+def _create_tenant_record(tenant_name: str, db: Session) -> tuple[Tenant, str]:
     """Helper to provision a dedicated tenant and scoped API key with standard scanner prefix."""
     # Prefix format: 'fk_live_' enables automated secret scanners (e.g. GitHub/Trufflehog) to detect leaked keys
     raw_api_key = f"fk_live_{secrets.token_hex(28)}"
@@ -77,7 +82,7 @@ def _create_tenant_for_user(user_name: str, db: Session) -> tuple[Tenant, str]:
     plan_id = free_plan.id if free_plan else 1
     
     tenant = Tenant(
-        name=f"{user_name}'s Ledger",
+        name=tenant_name,
         api_key_hash=key_hash,
         plan_id=plan_id,
         subscription_status="active",
@@ -86,6 +91,28 @@ def _create_tenant_for_user(user_name: str, db: Session) -> tuple[Tenant, str]:
     db.commit()
     db.refresh(tenant)
     return tenant, raw_api_key
+
+
+def _create_tenant_for_user(user_name: str, db: Session, company_name: str | None = None) -> tuple[Tenant, str]:
+    display_name = (company_name or "").strip() or f"{user_name}'s Ledger"
+    return _create_tenant_record(display_name, db)
+
+
+@router.post("/instant-key", status_code=status.HTTP_201_CREATED)
+def create_instant_key(payload: InstantKeyRequest, db: Session = Depends(get_db)):
+    """Provision a new tenant and scoped API key on-the-fly for developer sandbox or product testing."""
+    display_name = (payload.company_name or "").strip() or "Developer Workspace"
+    tenant, raw_key = _create_tenant_record(display_name, db)
+    return {
+        "message": "Tenant key created successfully",
+        "api_key": raw_key,
+        "tenant": {
+            "id": str(tenant.id),
+            "name": tenant.name,
+            "plan": "free",
+            "subscription_status": tenant.subscription_status,
+        },
+    }
 
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
@@ -108,8 +135,8 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
             detail="User with this email already exists.",
         )
 
-    # 1. Create dedicated tenant
-    tenant, raw_key = _create_tenant_for_user(payload.name, db)
+    # 1. Create dedicated tenant (using optional company_name or auto-assigning user ledger name)
+    tenant, raw_key = _create_tenant_for_user(payload.name, db, company_name=payload.company_name)
 
     # 2. Create User
     pwd_hash = hash_password(payload.password)
@@ -388,6 +415,34 @@ def get_auth_me(current_user: User = Depends(_get_current_user_from_token)):
         "name": current_user.name,
         "email": current_user.email,
         "tenant_id": str(current_user.tenant_id) if current_user.tenant_id else None,
+    }
+
+
+@router.post("/rotate-api-key")
+def rotate_api_key(
+    current_user: User = Depends(_get_current_user_from_token),
+    db: Session = Depends(get_db)
+):
+    """
+    Securely rotate/regenerate the API key for the authenticated user's tenant.
+    Returns the new raw API key once. Old API key is immediately invalidated.
+    """
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User does not have an associated tenant.")
+
+    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found.")
+
+    raw_api_key = f"fk_live_{secrets.token_hex(28)}"
+    key_hash = hashlib.sha256(raw_api_key.encode("utf-8")).hexdigest()
+    tenant.api_key_hash = key_hash
+    db.commit()
+
+    return {
+        "message": "API key rotated successfully. Store this key safely.",
+        "api_key": raw_api_key,
+        "tenant_id": str(tenant.id),
     }
 
 
