@@ -26,11 +26,13 @@ def generate(
     - Enforces quota (FOR UPDATE lock).
     - Idempotent: same key + same payload → replays cached response.
     """
+    usage = body.simulated_usage
+
     total_tokens = (
-        body.simulated_usage.input_tokens
-        + body.simulated_usage.cached_input_tokens
-        + body.simulated_usage.output_tokens
-        + body.simulated_usage.reasoning_tokens
+        usage.input_tokens
+        + usage.cached_input_tokens
+        + usage.output_tokens
+        + usage.reasoning_tokens
     )
 
     # ── 1. Idempotency pre-check ─────────────────────────────────────────────
@@ -54,19 +56,19 @@ def generate(
 
     # ── 3. Compute costs (integer micro-USD) ──────────────────────────────────
     token_cost = pricing_svc.cost_for_tokens(
-        body.simulated_usage.input_tokens,
-        body.simulated_usage.cached_input_tokens,
-        body.simulated_usage.output_tokens,
-        body.simulated_usage.reasoning_tokens,
+        usage.input_tokens,
+        usage.cached_input_tokens,
+        usage.output_tokens,
+        usage.reasoning_tokens,
     )
     call_cost = pricing_svc.cost_for_api_call()
 
     # ── 4. Build canonical response body ─────────────────────────────────────
     usage_summary = {
-        "input_tokens": body.simulated_usage.input_tokens,
-        "cached_input_tokens": body.simulated_usage.cached_input_tokens,
-        "output_tokens": body.simulated_usage.output_tokens,
-        "reasoning_tokens": body.simulated_usage.reasoning_tokens,
+        "input_tokens": usage.input_tokens,
+        "cached_input_tokens": usage.cached_input_tokens,
+        "output_tokens": usage.output_tokens,
+        "reasoning_tokens": usage.reasoning_tokens,
         "total_tokens": total_tokens,
         "api_call_cost_micro_usd": call_cost,
         "token_cost_micro_usd": token_cost,
@@ -87,13 +89,14 @@ def generate(
         token_event={
             "quantity": total_tokens,
             "cost_micro_usd": token_cost,
-            "input_tokens": body.simulated_usage.input_tokens,
-            "cached_input_tokens": body.simulated_usage.cached_input_tokens,
-            "output_tokens": body.simulated_usage.output_tokens,
-            "reasoning_tokens": body.simulated_usage.reasoning_tokens,
+            "input_tokens": usage.input_tokens,
+            "cached_input_tokens": usage.cached_input_tokens,
+            "output_tokens": usage.output_tokens,
+            "reasoning_tokens": usage.reasoning_tokens,
         },
         response_status=200,
         response_body=response_body,
     )
 
     return JSONResponse(status_code=200, content=response_body)
+
