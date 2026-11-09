@@ -51,8 +51,3 @@ htmlcov/
 .idea/
 .DS_Store
 Thumbs.db
-
-# Test & playground HTML files
-dummy_app.html
-*.test.html
-

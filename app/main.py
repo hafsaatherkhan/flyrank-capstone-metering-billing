@@ -52,23 +52,15 @@ async def request_context_middleware(request: Request, call_next):
     return response
 
 
-# CORS Configuration
-# Supports local dev, custom frontend domains, and deployment platforms
-raw_origins = [settings.web_origin] if settings.web_origin else []
-# Normalize and include common local dev and configured web origins
-allowed_origins = list(set([
-    origin.strip().rstrip("/") for origin in raw_origins if origin and origin.strip()
-] + ["http://localhost:3000", "http://127.0.0.1:3000"]))
-
+origins = [settings.web_origin] if settings.web_origin else ["http://localhost:3000"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
     allow_headers=["X-API-Key", "Idempotency-Key", "Content-Type", "Authorization", "X-Request-ID"],
     expose_headers=["Idempotent-Replayed", "X-Request-ID", "X-Response-Time-Ms"],
 )
-
 
 register_error_handlers(app)
 app.include_router(health.router)
