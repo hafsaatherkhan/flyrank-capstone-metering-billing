@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     database_url: str
-    database_url_test: str
+    database_url_test: str = ""
     polar_access_token: str = "polar_oat_placeholder"
     polar_webhook_secret: str = "polar_webhook_placeholder"
     polar_pro_product_id: str = "polar_product_placeholder"
