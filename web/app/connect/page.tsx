@@ -95,18 +95,34 @@ export default function ConnectPage() {
   const codeSnippets = {
     curl: `curl -X POST "${targetUrl}" \\
   -H "X-API-Key: ${apiKey || "YOUR_API_KEY"}" \\
+  -H "Idempotency-Key: req-sample-12345" \\
   -H "Content-Type: application/json" \\
-  -d '{"prompt": "Calculate monthly report totals"}'`,
+  -d '{
+    "prompt": "Summarize the Q3 financial earnings report.",
+    "simulated_usage": {
+      "input_tokens": 300,
+      "cached_input_tokens": 50,
+      "output_tokens": 150,
+      "reasoning_tokens": 75
+    }
+  }'`,
     node: `import fetch from "node-fetch";
 
 const response = await fetch("${targetUrl}", {
   method: "POST",
   headers: {
     "X-API-Key": "${apiKey || "YOUR_API_KEY"}",
+    "Idempotency-Key": "req-sample-12345",
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
-    prompt: "Calculate monthly report totals",
+    prompt: "Summarize the Q3 financial earnings report.",
+    simulated_usage: {
+      input_tokens: 300,
+      cached_input_tokens: 50,
+      output_tokens: 150,
+      reasoning_tokens: 75,
+    },
   }),
 });
 
@@ -117,10 +133,17 @@ console.log(data);`,
 url = "${targetUrl}"
 headers = {
     "X-API-Key": "${apiKey || "YOUR_API_KEY"}",
+    "Idempotency-Key": "req-sample-12345",
     "Content-Type": "application/json",
 }
 payload = {
-    "prompt": "Calculate monthly report totals"
+    "prompt": "Summarize the Q3 financial earnings report.",
+    "simulated_usage": {
+        "input_tokens": 300,
+        "cached_input_tokens": 50,
+        "output_tokens": 150,
+        "reasoning_tokens": 75,
+    },
 }
 
 response = requests.post(url, json=payload, headers=headers)

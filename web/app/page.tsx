@@ -33,7 +33,7 @@ function Marquee({ reverse = false }: { reverse?: boolean }) {
     "Real-Time Analytics",
     "Multi-Tenant Isolation",
     "Tamper-Evident Ledger",
-    "Neon Auth Sessions",
+    "Dual-Token JWT Sessions",
   ];
   return (
     <div className="overflow-hidden border-y border-[var(--line)] py-4">
@@ -211,7 +211,7 @@ export default function Home() {
             <div className="h-2 w-full rounded-full bg-[var(--border-color)] overflow-hidden">
               <div className="h-full bg-[var(--coral)] w-[82%]" />
             </div>
-            <p className="text-[10px] text-[var(--muted)]">Rate-limit policy enforced</p>
+            <p className="text-[10px] text-[var(--muted)]">Monthly quota policy enforced</p>
           </div>
         </motion.div>
 
@@ -276,7 +276,7 @@ export default function Home() {
               {
                 n: "01",
                 title: "Meter Every Call",
-                copy: "Ingest prompt, cached, and output tokens per tenant in real-time with zero latency overhead.",
+                copy: "Ingest prompt, cached, and output tokens per tenant in real-time with sub-millisecond precision.",
                 color: "var(--paper)",
                 fg: "var(--coffee)",
                 href: "/playground",
@@ -582,9 +582,9 @@ export default function Home() {
                 <div className="w-10 h-10 rounded-xl bg-[var(--bg-surface)] flex items-center justify-center text-[var(--coffee)] mb-4 font-bold transition-transform group-hover:scale-110">
                   ⚡
                 </div>
-                <h4 className="font-grotesk text-xl font-semibold mb-2 group-hover:text-[var(--coral)] transition-colors">Zero Latency Ingest</h4>
+                <h4 className="font-grotesk text-xl font-semibold mb-2 group-hover:text-[var(--coral)] transition-colors">Real-Time Ingestion</h4>
                 <p className="text-xs text-[var(--muted)] leading-relaxed">
-                  Asynchronous telemetry recording ensures your production model latency remains unaffected.
+                  Synchronous transactional recording ensures every token is accounted for before response completion.
                 </p>
               </motion.div>
 
@@ -598,7 +598,7 @@ export default function Home() {
                 </div>
                 <h4 className="font-grotesk text-xl font-semibold mb-2 group-hover:text-[var(--coral)] transition-colors">Tenant Quotas</h4>
                 <p className="text-xs text-[var(--muted)] leading-relaxed">
-                  Atomic row-lock limits with proactive rate-limiting halt runaway bills before they strike.
+                  Atomic row-lock limits with PostgreSQL SELECT FOR UPDATE halt runaway consumption before limits breach.
                 </p>
               </motion.div>
 
@@ -717,7 +717,7 @@ export default function Home() {
               <span>Metering ingestion live</span>
             </div>
             <p className="site-footer__notes">
-              Protected by FastAPI rate limiting, Neon Auth session isolation, and PostgreSQL row-level security.
+              Protected by PostgreSQL row locking (SELECT FOR UPDATE), custom JWT session isolation, and tamper-evident append-only ledger.
             </p>
           </div>
         </div>
