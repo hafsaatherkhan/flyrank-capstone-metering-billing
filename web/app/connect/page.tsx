@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { getStoredApiKey, setStoredApiKey, getStoredUser, apiFetch, StoredUser } from "@/lib/api";
+import { getStoredApiKey, setStoredApiKey, getStoredUser, apiFetch, StoredUser, API_URL } from "@/lib/api";
 import { TenantMe } from "@/lib/types";
 import {
   KeyRound,
@@ -90,14 +90,16 @@ export default function ConnectPage() {
   const tenantId = user?.tenant_id || tenant?.id || "your-tenant-uuid";
   const actualOrMaskedKey = showKey && apiKey ? apiKey : apiKey ? `${apiKey.slice(0, 10)}••••••••••••••••••••••••` : "fk_live_••••••••••••••••••••••••••••";
 
+  const targetUrl = API_URL ? `${API_URL}/generate` : "http://localhost:8000/generate";
+
   const codeSnippets = {
-    curl: `curl -X POST "http://localhost:8000/generate" \\
+    curl: `curl -X POST "${targetUrl}" \\
   -H "X-API-Key: ${apiKey || "YOUR_API_KEY"}" \\
   -H "Content-Type: application/json" \\
   -d '{"prompt": "Calculate monthly report totals"}'`,
     node: `import fetch from "node-fetch";
 
-const response = await fetch("http://localhost:8000/generate", {
+const response = await fetch("${targetUrl}", {
   method: "POST",
   headers: {
     "X-API-Key": "${apiKey || "YOUR_API_KEY"}",
@@ -112,7 +114,7 @@ const data = await response.json();
 console.log(data);`,
     python: `import requests
 
-url = "http://localhost:8000/generate"
+url = "${targetUrl}"
 headers = {
     "X-API-Key": "${apiKey || "YOUR_API_KEY"}",
     "Content-Type": "application/json",
