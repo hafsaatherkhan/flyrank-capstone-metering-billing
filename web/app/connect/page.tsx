@@ -206,18 +206,18 @@ print(response.json())`,
                 Tenant Identifier (Public ID)
               </label>
               <div className="flex items-center gap-2">
-                <div className="flex-1 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-color)] font-mono text-xs text-[var(--coffee)]">
+                <div className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-color)] font-mono text-xs text-[var(--coffee)] overflow-hidden">
                   <Building2 className="w-4 h-4 text-[var(--text-muted)] shrink-0" />
-                  <span className="truncate">{tenantId}</span>
+                  <span className="truncate block select-all">{tenantId}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleCopy(tenantId, "tenant")}
-                  className="px-3.5 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] hover:bg-[var(--bg-card)] text-xs font-semibold text-[var(--coffee)] flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="shrink-0 px-3 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] hover:bg-[var(--bg-card)] text-xs font-semibold text-[var(--coffee)] flex items-center gap-1.5 transition-colors cursor-pointer"
                   title="Copy Tenant ID"
                 >
                   {copiedTenantId ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-[var(--text-muted)]" />}
-                  <span>{copiedTenantId ? "Copied" : "Copy"}</span>
+                  <span className="hidden xs:inline sm:inline">{copiedTenantId ? "Copied" : "Copy"}</span>
                 </button>
               </div>
               <p className="mt-1 text-[11px] text-[var(--text-muted)]">
@@ -246,19 +246,19 @@ print(response.json())`,
               </div>
 
               <div className="flex items-center gap-2">
-                <div className="flex-1 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-color)] font-mono text-xs text-[var(--coffee)]">
+                <div className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-color)] font-mono text-xs text-[var(--coffee)] overflow-hidden">
                   <KeyRound className="w-4 h-4 text-amber-500 shrink-0" />
-                  <span className="truncate">{actualOrMaskedKey}</span>
+                  <span className="truncate block select-all">{actualOrMaskedKey}</span>
                 </div>
                 <button
                   type="button"
                   disabled={!apiKey}
                   onClick={() => apiKey && handleCopy(apiKey, "key")}
-                  className="px-3.5 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] hover:bg-[var(--bg-card)] text-xs font-semibold text-[var(--coffee)] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-40"
+                  className="shrink-0 px-3 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] hover:bg-[var(--bg-card)] text-xs font-semibold text-[var(--coffee)] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-40"
                   title="Copy API Key"
                 >
                   {copiedKey ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-[var(--text-muted)]" />}
-                  <span>{copiedKey ? "Copied" : "Copy"}</span>
+                  <span className="hidden xs:inline sm:inline">{copiedKey ? "Copied" : "Copy"}</span>
                 </button>
               </div>
 

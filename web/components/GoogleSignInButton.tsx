@@ -61,6 +61,10 @@ export default function GoogleSignInButton({
       // Clear previous button render if any
       containerRef.current.innerHTML = "";
 
+      // Calculate width responsive to container on mobile (min 240, max 380)
+      const containerWidth = containerRef.current.parentElement?.clientWidth || 320;
+      const buttonWidth = Math.max(220, Math.min(380, containerWidth - 10));
+
       window.google!.accounts.id.renderButton(containerRef.current, {
         type: "standard",
         theme: "outline",
@@ -68,7 +72,7 @@ export default function GoogleSignInButton({
         text: text,
         shape: "rectangular",
         logo_alignment: "left",
-        width: 380,
+        width: buttonWidth,
       });
     } catch (err: any) {
       console.error("Google button render error:", err);
@@ -85,11 +89,11 @@ export default function GoogleSignInButton({
 
   return (
     <div
-      className={`w-full flex justify-center items-center my-1 ${
+      className={`w-full max-w-full flex justify-center items-center my-1 overflow-hidden ${
         disabled ? "opacity-50 pointer-events-none" : ""
       }`}
     >
-      <div ref={containerRef} className="w-full flex justify-center min-h-[44px]" />
+      <div ref={containerRef} className="w-full max-w-full flex justify-center min-h-[44px] overflow-hidden" />
     </div>
   );
 }

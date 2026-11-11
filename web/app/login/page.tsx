@@ -120,7 +120,7 @@ export default function LoginPage() {
       </Suspense>
 
       {/* Popup Window Modal */}
-      <div className="relative w-full max-w-md rounded-3xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-2xl p-7 sm:p-8 animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-[92vw] sm:max-w-md rounded-3xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-2xl p-5 sm:p-8 animate-in zoom-in-95 duration-200">
         {/* Top Window Accent Bar */}
         <div className="absolute top-0 left-8 right-8 h-1 rounded-b bg-gradient-to-r from-transparent via-[var(--coral)] to-transparent opacity-80" />
 

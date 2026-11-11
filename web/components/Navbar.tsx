@@ -227,9 +227,9 @@ export default function Navbar() {
     <header className="sticky top-0 z-40 backdrop-blur-md bg-[var(--bg-base)]/85 border-b border-[var(--border-color)] transition-colors">
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         {/* Left: Brand Logo (always visible on left-most) */}
-        <div className="flex items-center gap-3 shrink-0">
-          <Link href="/" className="flex items-center gap-2 group">
-            <HisaabLedgerLogo size={36} />
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <Link href="/" className="flex items-center gap-1.5 sm:gap-2 group">
+            <HisaabLedgerLogo size={32} />
           </Link>
         </div>
 
@@ -252,8 +252,8 @@ export default function Navbar() {
             - On landing page: Cursor Toggle + Get Started (or Dashboard if logged in)
             - On app/dashboard pages: Only Hamburger Menu (User info, account links, docs, platform nav, logout are inside) */}
         {isLandingPage ? (
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* Custom Cursor Toggle Button */}
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            {/* Custom Cursor Toggle Button - hidden on small mobile to prevent squishing */}
             <button
               type="button"
               onClick={toggleCursor}
@@ -262,7 +262,7 @@ export default function Navbar() {
                   ? "Interactive cursor ON (Click to turn OFF)"
                   : "Interactive cursor OFF (Click to turn ON)"
               }
-              className={`flex items-center justify-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold transition-all shadow-sm active:scale-95 cursor-pointer ${
+              className={`hidden sm:flex items-center justify-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold transition-all shadow-sm active:scale-95 cursor-pointer ${
                 cursorEnabled
                   ? "bg-[var(--coral)] text-white border border-[var(--coral)] hover:opacity-90 shadow-[var(--coral)]/20"
                   : "bg-transparent text-[var(--coral)] border-2 border-[var(--coral)] hover:bg-[var(--coral-light)]"
@@ -281,7 +281,7 @@ export default function Navbar() {
             {isLoggedIn ? (
               <Link
                 href="/dashboard"
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[var(--coral)] hover:bg-[#d05c42] text-white text-xs font-semibold shadow-sm hover:shadow transition-all active:scale-95 group"
+                className="flex items-center gap-1 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-[var(--coral)] hover:bg-[#d05c42] text-white text-xs font-semibold shadow-sm hover:shadow transition-all active:scale-95 group shrink-0"
               >
                 <span>Dashboard</span>
                 <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -289,7 +289,7 @@ export default function Navbar() {
             ) : (
               <Link
                 href="/signup"
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[var(--coral)] hover:bg-[#d05c42] text-white text-xs font-semibold shadow-sm hover:shadow transition-all active:scale-95 group"
+                className="flex items-center gap-1 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-[var(--coral)] hover:bg-[#d05c42] text-white text-xs font-semibold shadow-sm hover:shadow transition-all active:scale-95 group shrink-0"
               >
                 <span>Get Started</span>
                 <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />

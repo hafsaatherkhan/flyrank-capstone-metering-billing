@@ -156,7 +156,7 @@ export default function Home() {
             AI Token Metering &amp; Cost Intelligence
           </motion.div>
 
-          <h1 className="font-grotesk text-[clamp(4.3rem,12.4vw,12.8rem)] font-medium leading-[.75] tracking-[-.085em]">
+          <h1 className="font-grotesk text-[clamp(2.75rem,11vw,12.8rem)] font-medium leading-[.85] tracking-[-.07em] md:leading-[.75] md:tracking-[-.085em]">
             <motion.span
               initial={{ x: "-15%", opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
@@ -215,32 +215,32 @@ export default function Home() {
           </div>
         </motion.div>
 
-        {/* Centre spinning HisaabLedger rotatory logo */}
+        {/* Centre spinning HisaabLedger rotatory logo - placed behind text on mobile and positioned cleanly */}
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
-          className="absolute bottom-[12%] left-[47%] flex items-center justify-center rounded-full shadow-2xl cursor-pointer hover:scale-110 transition-transform"
+          className="absolute z-0 bottom-[14%] right-[8%] md:bottom-[12%] md:left-[47%] md:right-auto flex items-center justify-center rounded-full shadow-2xl cursor-pointer hover:scale-110 transition-transform opacity-75 md:opacity-100 pointer-events-none md:pointer-events-auto"
         >
           <HisaabLedgerMark size={84} rounded="rounded-full" className="md:hidden border-2 border-[var(--coral)]/40 shadow-xl" />
           <HisaabLedgerMark size={112} rounded="rounded-full" className="hidden md:flex border-2 border-[var(--coral)]/40 shadow-xl" />
         </motion.div>
 
-        {/* Bottom-left narrative + CTA — absolute like capstone */}
-        <div className="absolute bottom-10 left-5 z-10 max-w-[380px] md:left-10">
-          <p className="text-base leading-relaxed text-[var(--muted)]">
+        {/* Bottom-left narrative + CTA — z-20 so text and buttons are strictly above the rotating circle */}
+        <div className="relative md:absolute mt-24 md:mt-0 bottom-auto md:bottom-10 left-auto md:left-10 z-20 max-w-[380px]">
+          <p className="text-sm sm:text-base leading-relaxed text-[var(--muted)]">
             Turn opaque AI consumption into tamper-evident ledgers, granular tenant analytics, and sub-cent billing precision.
           </p>
-          <div className="mt-5 flex flex-wrap gap-3">
+          <div className="mt-5 flex flex-wrap gap-2.5 sm:gap-3">
             <Link
               href="/signup"
-              className="inline-flex items-center gap-2 rounded-full bg-[var(--coffee)] px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-[var(--coral)] transition-all hover:-translate-y-0.5"
+              className="inline-flex items-center gap-2 rounded-full bg-[var(--coffee)] px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-md hover:bg-[var(--coral)] transition-all hover:-translate-y-0.5"
             >
               <UserPlus className="w-4 h-4" />
               Get Started Free
             </Link>
             <Link
               href="/login"
-              className="inline-flex items-center gap-2 rounded-full border border-[var(--line)] px-5 py-2.5 text-sm font-semibold text-[var(--coffee)] hover:bg-[var(--bg-surface)] transition-all"
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--line)] px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-semibold text-[var(--coffee)] hover:bg-[var(--bg-surface)] transition-all"
             >
               <LogIn className="w-4 h-4" />
               Login
